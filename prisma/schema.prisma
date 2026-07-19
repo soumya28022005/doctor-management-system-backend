@@ -1,0 +1,140 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  CLINIC
+  RECEPTIONIST
+  DOCTOR
+  PATIENT
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
+
+model User {
+  id           String       @id @default(uuid())
+  name         String
+  email        String       @unique
+  password     String?
+  phone        String?      @unique
+  role         Role
+  provider     AuthProvider @default(LOCAL)
+  googleId     String?      @unique
+  avatar       String?
+  isVerified   Boolean      @default(false)
+  isActive     Boolean      @default(true)
+  refreshToken String?
+
+  // true only for accounts the user created themselves (self-registered patients).
+  // false for accounts created on their behalf (doctor/receptionist created by a clinic).
+  selfRegistered Boolean    @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic       Clinic?
+  doctor       Doctor?
+  receptionist Receptionist?
+  patient      Patient?
+
+  @@map("users")
+}
+
+model Clinic {
+  id         String  @id @default(uuid())
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String  @unique
+
+  clinicName String
+  address    String?
+  city       String?
+  state      String?
+  pincode    String?
+  isApproved Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  doctors       Doctor[]
+  receptionists Receptionist[]
+
+  @@map("clinics")
+}
+
+model Doctor {
+  id             String  @id @default(uuid())
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String  @unique
+
+  clinic         Clinic  @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  clinicId       String
+
+  specialization String?
+  qualification  String?
+  experience     Int?
+  fee            Float?
+  isVerified     Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignedReceptionists ReceptionistDoctor[]
+
+  @@map("doctors")
+}
+
+model Receptionist {
+  id       String @id @default(uuid())
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   String @unique
+
+  clinic   Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  clinicId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignedDoctors ReceptionistDoctor[]
+
+  @@map("receptionists")
+}
+
+// Join table: which receptionist(s) manage which doctor(s)
+model ReceptionistDoctor {
+  id             String       @id @default(uuid())
+  receptionist   Receptionist @relation(fields: [receptionistId], references: [id], onDelete: Cascade)
+  receptionistId String
+  doctor         Doctor       @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  doctorId       String
+
+  createdAt DateTime @default(now())
+
+  @@unique([receptionistId, doctorId])
+  @@map("receptionist_doctors")
+}
+
+model Patient {
+  id      String    @id @default(uuid())
+  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId  String    @unique
+
+  dob     DateTime?
+  gender  String?
+  address String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("patients")
+}

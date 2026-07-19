@@ -1,0 +1,64 @@
+import asyncHandler from "../../utils/asyncHandler.js";
+import ApiResponse from "../../utils/apiResponse.js";
+import { COOKIE_OPTIONS } from "./auth.constants.js";
+import {
+  registerSchema,
+  loginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+} from "./auth.validation.js";
+import * as authService from "./auth.service.js";
+
+export const register = asyncHandler(async (req, res) => {
+  const data = registerSchema.parse(req.body);
+  const user = await authService.registerUser(data);
+  res.status(201).json(new ApiResponse(true, "User registered successfully", { user }));
+});
+
+export const login = asyncHandler(async (req, res) => {
+  const data = loginSchema.parse(req.body);
+  const { user, accessToken, refreshToken } = await authService.loginUser(data);
+
+  res.cookie("refreshToken", refreshToken, COOKIE_OPTIONS);
+
+  res
+    .status(200)
+    .json(new ApiResponse(true, "Login successful", { user, accessToken }));
+});
+
+export const refresh = asyncHandler(async (req, res) => {
+  const incomingRefreshToken = req.cookies?.refreshToken || req.body.refreshToken;
+  const { user, accessToken, refreshToken } = await authService.refreshTokens(
+    incomingRefreshToken
+  );
+
+  res.cookie("refreshToken", refreshToken, COOKIE_OPTIONS);
+
+  res
+    .status(200)
+    .json(new ApiResponse(true, "Token refreshed successfully", { user, accessToken }));
+});
+
+export const logout = asyncHandler(async (req, res) => {
+  await authService.logoutUser(req.user.id);
+  res.clearCookie("refreshToken", COOKIE_OPTIONS);
+  res.status(200).json(new ApiResponse(true, "Logged out successfully"));
+});
+
+export const forgotPassword = asyncHandler(async (req, res) => {
+  const { email } = forgotPasswordSchema.parse(req.body);
+  await authService.forgotPassword(email);
+  res
+    .status(200)
+    .json(new ApiResponse(true, "If that email exists, an OTP has been sent"));
+});
+
+export const resetPassword = asyncHandler(async (req, res) => {
+  const data = resetPasswordSchema.parse(req.body);
+  await authService.resetPassword(data);
+  res.status(200).json(new ApiResponse(true, "Password reset successfully"));
+});
+
+export const getMe = asyncHandler(async (req, res) => {
+  res.status(200).json(new ApiResponse(true, "Current user fetched", { user: req.user }));
+});

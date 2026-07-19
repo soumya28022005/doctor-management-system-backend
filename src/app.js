@@ -1,0 +1,46 @@
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+import compression from "compression";
+import cookieParser from "cookie-parser";
+
+import { env } from "./config/env.config.js";
+import notFoundMiddleware from "./middlewares/notFound.middleware.js";
+import errorMiddleware from "./middlewares/error.middleware.js";
+
+import authRoutes from "./modules/auth/auth.routes.js";
+import clinicRoutes from "./modules/clinic/clinic.routes.js";
+import receptionistRoutes from "./modules/receptionist/receptionist.routes.js";
+import adminRoutes from "./modules/admin/admin.routes.js";
+
+const app = express();
+
+app.use(helmet());
+app.use(
+  cors({
+    origin: env.CLIENT_URL,
+    credentials: true,
+  })
+);
+app.use(compression());
+app.use(cookieParser());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.get("/api/v1/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Server is healthy",
+    data: { environment: env.NODE_ENV },
+  });
+});
+
+app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/clinic", clinicRoutes);
+app.use("/api/v1/receptionist", receptionistRoutes);
+app.use("/api/v1/admin", adminRoutes);
+
+app.use(notFoundMiddleware);
+app.use(errorMiddleware);
+
+export default app;
