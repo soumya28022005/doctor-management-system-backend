@@ -78,5 +78,5 @@ A robust, full-stack clinic appointment and doctor management system designed to
 
 1. **Clone the repository:**
    ```bash
-   git clone <repository-url>
-   cd <project-folder>
+   git clone soumya28022005/doctor-management-system-backend
+   cd soumya28022005/doctor-management-system-backend
