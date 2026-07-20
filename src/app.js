@@ -15,6 +15,7 @@ import adminRoutes from "./modules/admin/admin.routes.js";
 import patientRoutes from "./modules/patient/patient.routes.js";
 
 import appointmentRoutes from "./modules/appointment/appointment.routes.js";
+import queueRoutes from "./modules/queue/queue.routes.js";
 
 const app = express();
 
@@ -45,6 +46,8 @@ app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/patient", patientRoutes);
 
 app.use("/api/v1/appointments", appointmentRoutes);
+
+app.use("/api/v1/queue", queueRoutes);
 
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);

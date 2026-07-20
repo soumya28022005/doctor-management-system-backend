@@ -189,9 +189,23 @@ model Queue {
   updatedAt DateTime @updatedAt
 
   appointments Appointment[]
+  logs         QueueLog[]
 
   @@unique([doctorId, date])
   @@map("queues")
+}
+
+model QueueLog {
+  id          String   @id @default(uuid())
+  queue       Queue    @relation(fields: [queueId], references: [id], onDelete: Cascade)
+  queueId     String
+  action      String
+  performedBy String
+  meta        Json?
+
+  createdAt DateTime @default(now())
+
+  @@map("queue_logs")
 }
 
 model Appointment {
@@ -206,6 +220,7 @@ model Appointment {
   date          DateTime          @db.Date
   status        AppointmentStatus @default(WAITING)
   bookingSource BookingSource
+  isEmergency   Boolean           @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
