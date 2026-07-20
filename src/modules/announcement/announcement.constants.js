@@ -1,0 +1,8 @@
+export const ANNOUNCEMENT_TYPES = [
+  "DOCTOR_ABSENT",
+  "CLINIC_CLOSED",
+  "HOLIDAY",
+  "EMERGENCY",
+  "MAINTENANCE",
+  "GENERAL",
+];

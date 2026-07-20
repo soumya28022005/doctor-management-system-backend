@@ -93,6 +93,7 @@ model Clinic {
 
   doctors       Doctor[]
   receptionists Receptionist[]
+  announcements Announcement[]
 
   @@map("clinics")
 }
@@ -117,6 +118,7 @@ model Doctor {
   assignedReceptionists ReceptionistDoctor[]
   queues                Queue[]
   appointments          Appointment[]
+  announcements         Announcement[]
 
   @@map("doctors")
 }
@@ -237,4 +239,36 @@ model PlatformSetting {
   updatedAt DateTime @updatedAt
 
   @@map("platform_settings")
+}
+
+enum AnnouncementType {
+  DOCTOR_ABSENT
+  CLINIC_CLOSED
+  HOLIDAY
+  EMERGENCY
+  MAINTENANCE
+  GENERAL
+}
+
+model Announcement {
+  id        String           @id @default(uuid())
+  type      AnnouncementType
+  title     String
+  message   String
+
+  // null clinicId = platform-wide (posted by Admin/Super Admin)
+  clinic   Clinic? @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  clinicId String?
+
+  // optional — ties the notice to one specific doctor (e.g. "Dr. X absent today")
+  doctor   Doctor? @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  doctorId String?
+
+  createdByUserId String
+  isActive        Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("announcements")
 }
