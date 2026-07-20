@@ -7,6 +7,8 @@ import {
   listClinicsQuerySchema,
 } from "./admin.validation.js";
 
+import { updateSettingsSchema } from "./admin.validation.js";
+
 export const listClinics = asyncHandler(async (req, res) => {
   const query = listClinicsQuerySchema.parse(req.query);
   const result = await adminService.listClinics(query);
@@ -50,4 +52,15 @@ export const toggleUserStatus = asyncHandler(async (req, res) => {
 export const getStats = asyncHandler(async (req, res) => {
   const stats = await adminService.getStats();
   res.status(200).json(new ApiResponse(true, "Platform stats fetched", { stats }));
+});
+
+export const getSettings = asyncHandler(async (req, res) => {
+  const settings = await adminService.getSettings();
+  res.status(200).json(new ApiResponse(true, "Platform settings fetched", { settings }));
+});
+
+export const updateSettings = asyncHandler(async (req, res) => {
+  const data = updateSettingsSchema.parse(req.body);
+  const settings = await adminService.updateSettings(data);
+  res.status(200).json(new ApiResponse(true, "Platform settings updated", { settings }));
 });

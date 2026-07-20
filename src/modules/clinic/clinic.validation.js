@@ -17,6 +17,7 @@ export const createDoctorSchema = z.object({
   qualification: z.string().optional(),
   experience: z.number().int().nonnegative().optional(),
   fee: z.number().nonnegative().optional(),
+  startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "startTime must be in HH:mm 24-hour format").optional(),
 });
 
 export const createReceptionistSchema = z.object({
@@ -34,4 +35,12 @@ export const assignDoctorsSchema = z.object({
 export const changeStaffPasswordSchema = z.object({
   userId: z.string().uuid(),
   newPassword: z.string().min(6, "Password must be at least 6 characters"),
+});
+
+export const updateDoctorSchema = z.object({
+  startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "startTime must be in HH:mm 24-hour format").optional(),
+  specialization: z.string().optional(),
+  qualification: z.string().optional(),
+  experience: z.number().int().nonnegative().optional(),
+  fee: z.number().nonnegative().optional(),
 });

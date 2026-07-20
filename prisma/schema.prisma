@@ -109,6 +109,7 @@ model Doctor {
   fee            Float?
   isVerified     Boolean   @default(false)
   queueMode      QueueMode @default(LIVE)
+  startTime      String?   // "HH:mm" 24-hour format, e.g. "10:00" — daily consultation start time
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -211,4 +212,14 @@ model Appointment {
 
   @@unique([doctorId, date, token])
   @@map("appointments")
+}
+
+// Singleton table — always exactly one row — holds platform-wide configurable settings
+model PlatformSetting {
+  id                   String @id @default(uuid())
+  bookingWindowMinutes Int    @default(180)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("platform_settings")
 }

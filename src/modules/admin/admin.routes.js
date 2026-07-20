@@ -19,4 +19,7 @@ router.patch("/doctors/:doctorId/verify", adminController.verifyDoctor);
 router.get("/users", adminController.listUsers);
 router.patch("/users/:userId/status", adminController.toggleUserStatus);
 
+router.get("/settings", adminController.getSettings);
+router.patch("/settings", adminController.updateSettings);
+
 export default router;

@@ -8,6 +8,8 @@ import {
   assignDoctorsSchema,
   changeStaffPasswordSchema,
 } from "./clinic.validation.js";
+import { updateDoctorSchema } from "./clinic.validation.js";
+
 
 export const getMyProfile = asyncHandler(async (req, res) => {
   const clinic = await clinicService.getMyClinicProfile(req.user.id);
@@ -59,4 +61,10 @@ export const changeStaffPassword = asyncHandler(async (req, res) => {
   const data = changeStaffPasswordSchema.parse(req.body);
   await clinicService.changeStaffPassword(req.user.id, data);
   res.status(200).json(new ApiResponse(true, "Password updated successfully"));
+});
+
+export const editDoctor = asyncHandler(async (req, res) => {
+  const data = updateDoctorSchema.parse(req.body);
+  const doctor = await clinicService.editDoctor(req.user.id, req.params.doctorId, data);
+  res.status(200).json(new ApiResponse(true, "Doctor updated successfully", { doctor }));
 });

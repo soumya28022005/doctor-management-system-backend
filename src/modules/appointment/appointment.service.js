@@ -23,6 +23,8 @@ export const bookOnlineAppointment = async (patientUserId, { doctorId, date }) =
   const patient = await getPatientByUserId(patientUserId);
   if (!patient) throw new ApiError(404, "Patient profile not found");
 
+  await validateBookingWindow(doctorId);
+
   return bookAppointmentCore({
     doctorId,
     patientId: patient.id,
@@ -54,6 +56,36 @@ export const bookReceptionAppointment = async ({
     date,
     bookingSource: bookingSource || "RECEPTION",
   });
+};
+
+const validateBookingWindow = async (doctorId) => {
+  const doctor = await getDoctorById(doctorId);
+  if (!doctor) throw new ApiError(404, "Doctor not found");
+
+  if (!doctor.startTime) return; // no restriction configured for this doctor
+
+  const settings = await prisma.platformSetting.findFirst();
+  const windowMinutes = settings?.bookingWindowMinutes ?? 180;
+
+  const [hours, minutes] = doctor.startTime.split(":").map(Number);
+
+  const now = new Date();
+  const doctorStart = new Date(now);
+  doctorStart.setHours(hours, minutes, 0, 0);
+
+  const windowStart = new Date(doctorStart.getTime() - windowMinutes * 60000);
+  const windowEnd = new Date(doctorStart.getTime() + windowMinutes * 60000);
+
+  if (now < windowStart || now > windowEnd) {
+    throw new ApiError(
+      400,
+      `Online booking for this doctor is only allowed between ${formatTime(windowStart)} and ${formatTime(windowEnd)}`
+    );
+  }
+};
+
+const formatTime = (date) => {
+  return date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 };
 
 export const getMyAppointments = async (patientUserId) => {

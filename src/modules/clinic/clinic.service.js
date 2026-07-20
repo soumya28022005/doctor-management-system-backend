@@ -15,6 +15,8 @@ import {
   findDoctorOrReceptionistUser,
 } from "./clinic.repository.js";
 
+import { updateDoctor } from "./clinic.repository.js";
+
 export const getMyClinicProfile = async (userId) => {
   const clinic = await findClinicByUserId(userId);
   if (!clinic) throw new ApiError(404, "Clinic profile not found");
@@ -38,11 +40,11 @@ export const addDoctor = async (clinicUserId, payload) => {
   if (existing) throw new ApiError(409, "A user with this email already exists");
 
   const hashedPassword = await hashPassword(payload.password);
-  const { specialization, qualification, experience, fee, ...userFields } = payload;
+  const { specialization, qualification, experience, fee, startTime, ...userFields } = payload;
 
   const { user, doctor } = await createDoctorWithUser({
     userData: { ...userFields, password: hashedPassword },
-    doctorData: { specialization, qualification, experience, fee },
+    doctorData: { specialization, qualification, experience, fee, startTime },
     clinicId: clinic.id,
   });
 
@@ -127,4 +129,16 @@ export const changeStaffPassword = async (clinicUserId, { userId, newPassword })
 
   const hashedPassword = await hashPassword(newPassword);
   await updateUserPassword(userId, hashedPassword);
+};
+
+export const editDoctor = async (clinicUserId, doctorId, data) => {
+  const clinic = await findClinicByUserId(clinicUserId);
+  if (!clinic) throw new ApiError(404, "Clinic profile not found");
+
+  const doctor = await findDoctorById(doctorId);
+  if (!doctor || doctor.clinicId !== clinic.id) {
+    throw new ApiError(404, "Doctor not found in your clinic");
+  }
+
+  return updateDoctor(doctorId, data);
 };

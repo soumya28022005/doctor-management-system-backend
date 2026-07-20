@@ -67,3 +67,11 @@ export const getPlatformStats = async () => {
     totalPatients,
   };
 };
+
+export const getPlatformSettings = () => {
+  return prisma.platformSetting.findFirst();
+};
+
+export const updatePlatformSettings = (id, data) => {
+  return prisma.platformSetting.update({ where: { id }, data });
+};

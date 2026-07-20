@@ -1,4 +1,6 @@
 import ApiError from "../../utils/apiError.js";
+import { getPlatformSettings, updatePlatformSettings } from "./admin.repository.js";
+
 import {
   findAllClinics,
   countClinics,
@@ -15,6 +17,18 @@ import {
   findUserByIdRaw,
   setUserActiveStatus,
 } from "../user/user.repository.js";
+
+export const getSettings = async () => {
+  const settings = await getPlatformSettings();
+  if (!settings) throw new ApiError(500, "Platform settings not initialized");
+  return settings;
+};
+
+export const updateSettings = async ({ bookingWindowMinutes }) => {
+  const settings = await getPlatformSettings();
+  if (!settings) throw new ApiError(500, "Platform settings not initialized");
+  return updatePlatformSettings(settings.id, { bookingWindowMinutes });
+};
 
 export const listClinics = async ({ isApproved, page, limit }) => {
   const [clinics, total] = await Promise.all([

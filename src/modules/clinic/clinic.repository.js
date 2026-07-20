@@ -114,3 +114,6 @@ export const findDoctorOrReceptionistUser = async (userId, clinicId) => {
 
   return null;
 };
+export const updateDoctor = (id, data) => {
+  return prisma.doctor.update({ where: { id }, data });
+};

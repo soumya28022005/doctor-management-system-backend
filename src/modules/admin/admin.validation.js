@@ -20,3 +20,7 @@ export const listClinicsQuerySchema = z.object({
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
 });
+
+export const updateSettingsSchema = z.object({
+  bookingWindowMinutes: z.number().int().positive("Must be a positive number of minutes"),
+});

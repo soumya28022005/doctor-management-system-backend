@@ -3,6 +3,7 @@ import * as clinicController from "./clinic.controller.js";
 import authMiddleware from "../../middlewares/auth.middleware.js";
 import roleMiddleware from "../../middlewares/role.middleware.js";
 
+
 const router = Router();
 
 router.use(authMiddleware, roleMiddleware("CLINIC"));
@@ -18,5 +19,7 @@ router.get("/receptionists", clinicController.listReceptionists);
 
 router.post("/receptionists/assign-doctors", clinicController.assignDoctorsToReceptionist);
 router.patch("/staff/change-password", clinicController.changeStaffPassword);
+
+router.patch("/doctors/:doctorId", clinicController.editDoctor);
 
 export default router;
