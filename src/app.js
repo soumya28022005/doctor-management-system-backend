@@ -8,6 +8,8 @@ import { env } from "./config/env.config.js";
 import notFoundMiddleware from "./middlewares/notFound.middleware.js";
 import errorMiddleware from "./middlewares/error.middleware.js";
 
+import { generalLimiter } from "./middlewares/rateLimiter.middleware.js";
+
 import authRoutes from "./modules/auth/auth.routes.js";
 import clinicRoutes from "./modules/clinic/clinic.routes.js";
 import receptionistRoutes from "./modules/receptionist/receptionist.routes.js";
@@ -30,6 +32,7 @@ app.use(
 );
 app.use(compression());
 app.use(cookieParser());
+app.use(generalLimiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
