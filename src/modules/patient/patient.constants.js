@@ -1,0 +1,1 @@
+export const PATIENT_SEARCH_MIN_LENGTH = 4;

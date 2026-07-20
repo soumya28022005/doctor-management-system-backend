@@ -12,7 +12,7 @@ export const createUser = (data) => {
   return prisma.user.create({ data });
 };
 
-export const createUserWithProfile = ({ userData, role }) => {
+export const createUserWithProfile = ({ userData, role, dob }) => {
   return prisma.$transaction(async (tx) => {
     const user = await tx.user.create({ data: userData });
 
@@ -24,7 +24,7 @@ export const createUserWithProfile = ({ userData, role }) => {
 
     if (role === "PATIENT") {
       await tx.patient.create({
-        data: { userId: user.id },
+        data: { userId: user.id, dob: dob ? new Date(dob) : undefined },
       });
     }
 

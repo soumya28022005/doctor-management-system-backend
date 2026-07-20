@@ -17,7 +17,7 @@ import {
 import { OTP_EXPIRY_SECONDS, OTP_PREFIX } from "./auth.constants.js";
 import { sendEmail } from "../../utils/emailService.js";
 
-export const registerUser = async ({ name, email, password, phone, role }) => {
+export const registerUser = async ({ name, email, password, phone, dob, role }) => {
   const existingUser = await findUserByEmail(email);
   if (existingUser) {
     throw new ApiError(409, "User with this email already exists");
@@ -28,6 +28,7 @@ export const registerUser = async ({ name, email, password, phone, role }) => {
   const user = await createUserWithProfile({
     userData: { name, email, phone, role, password: hashedPassword },
     role,
+    dob,
   });
 
   return sanitizeUser(user);

@@ -12,6 +12,9 @@ import authRoutes from "./modules/auth/auth.routes.js";
 import clinicRoutes from "./modules/clinic/clinic.routes.js";
 import receptionistRoutes from "./modules/receptionist/receptionist.routes.js";
 import adminRoutes from "./modules/admin/admin.routes.js";
+import patientRoutes from "./modules/patient/patient.routes.js";
+
+import appointmentRoutes from "./modules/appointment/appointment.routes.js";
 
 const app = express();
 
@@ -39,6 +42,9 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/clinic", clinicRoutes);
 app.use("/api/v1/receptionist", receptionistRoutes);
 app.use("/api/v1/admin", adminRoutes);
+app.use("/api/v1/patient", patientRoutes);
+
+app.use("/api/v1/appointments", appointmentRoutes);
 
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);

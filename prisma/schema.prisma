@@ -22,23 +22,47 @@ enum AuthProvider {
   GOOGLE
 }
 
-model User {
-  id           String       @id @default(uuid())
-  name         String
-  email        String       @unique
-  password     String?
-  phone        String?      @unique
-  role         Role
-  provider     AuthProvider @default(LOCAL)
-  googleId     String?      @unique
-  avatar       String?
-  isVerified   Boolean      @default(false)
-  isActive     Boolean      @default(true)
-  refreshToken String?
+enum QueueMode {
+  LIVE
+  PRIVATE
+  TIME_SLOT
+}
 
-  // true only for accounts the user created themselves (self-registered patients).
-  // false for accounts created on their behalf (doctor/receptionist created by a clinic).
-  selfRegistered Boolean    @default(true)
+enum QueueStatus {
+  OPEN
+  PAUSED
+  CLOSED
+}
+
+enum AppointmentStatus {
+  WAITING
+  CHECKED_IN
+  ABSENT
+  COMPLETED
+  CANCELLED
+}
+
+enum BookingSource {
+  ONLINE
+  RECEPTION
+  WALK_IN
+  PHONE
+}
+
+model User {
+  id             String       @id @default(uuid())
+  name           String
+  email          String?      @unique
+  password       String?
+  phone          String?      @unique
+  role           Role
+  provider       AuthProvider @default(LOCAL)
+  googleId       String?      @unique
+  avatar         String?
+  isVerified     Boolean      @default(false)
+  isActive       Boolean      @default(true)
+  refreshToken   String?
+  selfRegistered Boolean      @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -52,16 +76,17 @@ model User {
 }
 
 model Clinic {
-  id         String  @id @default(uuid())
-  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId     String  @unique
-
+  id         String   @id @default(uuid())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String   @unique
   clinicName String
   address    String?
   city       String?
   state      String?
   pincode    String?
-  isApproved Boolean @default(false)
+  latitude   Float?
+  longitude  Float?
+  isApproved Boolean  @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -73,23 +98,24 @@ model Clinic {
 }
 
 model Doctor {
-  id             String  @id @default(uuid())
-  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId         String  @unique
-
-  clinic         Clinic  @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  id             String    @id @default(uuid())
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String    @unique
+  clinic         Clinic    @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   clinicId       String
-
   specialization String?
   qualification  String?
   experience     Int?
   fee            Float?
-  isVerified     Boolean @default(false)
+  isVerified     Boolean   @default(false)
+  queueMode      QueueMode @default(LIVE)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   assignedReceptionists ReceptionistDoctor[]
+  queues                Queue[]
+  appointments          Appointment[]
 
   @@map("doctors")
 }
@@ -98,7 +124,6 @@ model Receptionist {
   id       String @id @default(uuid())
   user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId   String @unique
-
   clinic   Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
   clinicId String
 
@@ -110,7 +135,6 @@ model Receptionist {
   @@map("receptionists")
 }
 
-// Join table: which receptionist(s) manage which doctor(s)
 model ReceptionistDoctor {
   id             String       @id @default(uuid())
   receptionist   Receptionist @relation(fields: [receptionistId], references: [id], onDelete: Cascade)
@@ -125,16 +149,66 @@ model ReceptionistDoctor {
 }
 
 model Patient {
-  id      String    @id @default(uuid())
-  user    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId  String    @unique
+  id     String  @id @default(uuid())
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String? @unique
 
-  dob     DateTime?
-  gender  String?
-  address String?
+  // For guest/walk-in patients who have no login account —
+  // these hold the identity directly on the Patient record.
+  // For self-registered patients, name/phone live on the linked User instead.
+  name  String?
+  phone String?
+
+  dob        DateTime?
+  age        Int?
+  gender     String?
+  bloodGroup String?
+  address    String?
+  latitude   Float?
+  longitude  Float?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  appointments Appointment[]
+
   @@map("patients")
+}
+
+model Queue {
+  id              String      @id @default(uuid())
+  doctor          Doctor      @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  doctorId        String
+  date            DateTime    @db.Date
+  currentToken    Int         @default(0)
+  lastTokenIssued Int         @default(0)
+  status          QueueStatus @default(OPEN)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointments Appointment[]
+
+  @@unique([doctorId, date])
+  @@map("queues")
+}
+
+model Appointment {
+  id            String            @id @default(uuid())
+  doctor        Doctor            @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  doctorId      String
+  patient       Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patientId     String
+  queue         Queue             @relation(fields: [queueId], references: [id], onDelete: Cascade)
+  queueId       String
+  token         Int
+  date          DateTime          @db.Date
+  status        AppointmentStatus @default(WAITING)
+  bookingSource BookingSource
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([doctorId, date, token])
+  @@map("appointments")
 }

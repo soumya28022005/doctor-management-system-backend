@@ -1,0 +1,6 @@
+export const BOOKING_SOURCE = {
+  ONLINE: "ONLINE",
+  RECEPTION: "RECEPTION",
+  WALK_IN: "WALK_IN",
+  PHONE: "PHONE",
+};
