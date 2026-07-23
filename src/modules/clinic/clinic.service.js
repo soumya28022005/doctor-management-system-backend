@@ -14,8 +14,12 @@ import {
   findAssignedDoctorsForReceptionistUser,
   findDoctorOrReceptionistUser,
 } from "./clinic.repository.js";
+import { uploadBufferToCloudinary } from "../../utils/cloudinaryUpload.js";
+import { updateClinicLogo } from "./clinic.repository.js";
 
 import { updateDoctor } from "./clinic.repository.js";
+import { searchClinicsByName } from "./clinic.repository.js";
+import { respondToDoctorRequest as respondToDoctorRequestCore } from "../doctor/doctor.service.js";
 
 export const getMyClinicProfile = async (userId) => {
   const clinic = await findClinicByUserId(userId);
@@ -141,4 +145,21 @@ export const editDoctor = async (clinicUserId, doctorId, data) => {
   }
 
   return updateDoctor(doctorId, data);
+};
+
+export const searchByName = async (name) => {
+  return searchClinicsByName(name);
+};
+
+export const respondToDoctorRequest = async (clinicUserId, associationId, action) => {
+  return respondToDoctorRequestCore(clinicUserId, associationId, action);
+};
+
+
+export const uploadLogo = async (clinicUserId, fileBuffer) => {
+  const clinic = await findClinicByUserId(clinicUserId);
+  if (!clinic) throw new ApiError(404, "Clinic profile not found");
+
+  const result = await uploadBufferToCloudinary(fileBuffer, "jeet/clinics");
+  return updateClinicLogo(clinic.id, result.secure_url);
 };

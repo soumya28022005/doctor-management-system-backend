@@ -1,0 +1,71 @@
+import asyncHandler from "../../utils/asyncHandler.js";
+import ApiResponse from "../../utils/apiResponse.js";
+import * as doctorService from "./doctor.service.js";
+import {
+  searchDoctorsByNameSchema,
+  sendRequestToDoctorSchema,
+  respondToRequestSchema,
+} from "./doctor.validation.js";
+import { sendRequestToClinicSchema } from "./doctor.validation.js";
+import ApiError from "../../utils/apiError.js";
+
+export const searchByName = asyncHandler(async (req, res) => {
+  const { name } = searchDoctorsByNameSchema.parse(req.query);
+  const doctors = await doctorService.searchByName(name);
+  res.status(200).json(new ApiResponse(true, "Doctors fetched", { doctors }));
+});
+
+export const sendRequestToDoctor = asyncHandler(async (req, res) => {
+  const data = sendRequestToDoctorSchema.parse(req.body);
+  const result = await doctorService.sendRequestToDoctor(req.user.id, data);
+  res.status(201).json(new ApiResponse(true, "Request sent to doctor", result));
+});
+
+export const respondToClinicRequest = asyncHandler(async (req, res) => {
+  const { action } = respondToRequestSchema.parse(req.body);
+  const association = await doctorService.respondToClinicRequest(
+    req.user.id,
+    req.params.associationId,
+    action
+  );
+  res
+    .status(200)
+    .json(new ApiResponse(true, `Request ${action === "ACCEPT" ? "approved" : "rejected"}`, { association }));
+});
+
+export const getMyReceivedRequests = asyncHandler(async (req, res) => {
+  const requests = await doctorService.getMyReceivedRequests(req.user.id);
+  res.status(200).json(new ApiResponse(true, "Received requests fetched", { requests }));
+});
+
+export const getMySentRequests = asyncHandler(async (req, res) => {
+  const requests = await doctorService.getMySentRequests(req.user.id);
+  res.status(200).json(new ApiResponse(true, "Sent requests fetched", { requests }));
+});
+
+export const sendRequestToClinic = asyncHandler(async (req, res) => {
+  const data = sendRequestToClinicSchema.parse(req.body);
+  const result = await doctorService.sendRequestToClinic(req.user.id, data);
+  res.status(201).json(new ApiResponse(true, "Request sent to clinic", result));
+});
+
+export const cancelAssociation = asyncHandler(async (req, res) => {
+  const association = await doctorService.cancelAssociation(
+    req.user.id,
+    req.user.role,
+    req.params.associationId
+  );
+  res.status(200).json(new ApiResponse(true, "Association cancelled", { association }));
+});
+
+export const uploadProfilePhoto = asyncHandler(async (req, res) => {
+  if (!req.file) throw new (await import("../../utils/apiError.js")).default(400, "No image file provided");
+  const doctor = await doctorService.uploadProfilePhoto(req.user.id, req.file.buffer);
+  res.status(200).json(new ApiResponse(true, "Profile photo uploaded", { doctor }));
+});
+
+export const uploadProfilePhoto = asyncHandler(async (req, res) => {
+  if (!req.file) throw new ApiError(400, "No image file provided");
+  const doctor = await doctorService.uploadProfilePhoto(req.user.id, req.file.buffer);
+  res.status(200).json(new ApiResponse(true, "Profile photo uploaded", { doctor }));
+});

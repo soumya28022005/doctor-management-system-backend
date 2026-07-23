@@ -1,70 +1,65 @@
 import asyncHandler from "../../utils/asyncHandler.js";
 import ApiResponse from "../../utils/apiResponse.js";
-import * as clinicService from "./clinic.service.js";
+import ApiError from "../../utils/apiError.js";
+import * as doctorService from "./doctor.service.js";
 import {
-  updateClinicProfileSchema,
-  createDoctorSchema,
-  createReceptionistSchema,
-  assignDoctorsSchema,
-  changeStaffPasswordSchema,
-} from "./clinic.validation.js";
-import { updateDoctorSchema } from "./clinic.validation.js";
+  searchDoctorsByNameSchema,
+  sendRequestToDoctorSchema,
+  sendRequestToClinicSchema,
+  respondToRequestSchema,
+} from "./doctor.validation.js";
 
-
-export const getMyProfile = asyncHandler(async (req, res) => {
-  const clinic = await clinicService.getMyClinicProfile(req.user.id);
-  res.status(200).json(new ApiResponse(true, "Clinic profile fetched", { clinic }));
-});
-
-export const updateMyProfile = asyncHandler(async (req, res) => {
-  const data = updateClinicProfileSchema.parse(req.body);
-  const clinic = await clinicService.updateMyClinicProfile(req.user.id, data);
-  res.status(200).json(new ApiResponse(true, "Clinic profile updated", { clinic }));
-});
-
-export const addDoctor = asyncHandler(async (req, res) => {
-  const data = createDoctorSchema.parse(req.body);
-  const result = await clinicService.addDoctor(req.user.id, data);
-  res.status(201).json(new ApiResponse(true, "Doctor created successfully", result));
-});
-
-export const addReceptionist = asyncHandler(async (req, res) => {
-  const data = createReceptionistSchema.parse(req.body);
-  const result = await clinicService.addReceptionist(req.user.id, data);
-  res.status(201).json(new ApiResponse(true, "Receptionist created successfully", result));
-});
-
-export const listDoctors = asyncHandler(async (req, res) => {
-  const doctors = await clinicService.listMyDoctors(req.user.id);
+export const searchByName = asyncHandler(async (req, res) => {
+  const { name } = searchDoctorsByNameSchema.parse(req.query);
+  const doctors = await doctorService.searchByName(name);
   res.status(200).json(new ApiResponse(true, "Doctors fetched", { doctors }));
 });
 
-export const listReceptionists = asyncHandler(async (req, res) => {
-  const receptionists = await clinicService.listMyReceptionists(req.user.id);
-  res.status(200).json(new ApiResponse(true, "Receptionists fetched", { receptionists }));
+export const sendRequestToDoctor = asyncHandler(async (req, res) => {
+  const data = sendRequestToDoctorSchema.parse(req.body);
+  const result = await doctorService.sendRequestToDoctor(req.user.id, data);
+  res.status(201).json(new ApiResponse(true, "Request sent to doctor", result));
 });
 
-export const assignDoctorsToReceptionist = asyncHandler(async (req, res) => {
-  const data = assignDoctorsSchema.parse(req.body);
-  const result = await clinicService.assignDoctorsToReceptionistForClinic(req.user.id, data);
+export const sendRequestToClinic = asyncHandler(async (req, res) => {
+  const data = sendRequestToClinicSchema.parse(req.body);
+  const result = await doctorService.sendRequestToClinic(req.user.id, data);
+  res.status(201).json(new ApiResponse(true, "Request sent to clinic", result));
+});
+
+export const respondToClinicRequest = asyncHandler(async (req, res) => {
+  const { action } = respondToRequestSchema.parse(req.body);
+  const association = await doctorService.respondToClinicRequest(
+    req.user.id,
+    req.params.associationId,
+    action
+  );
   res
     .status(200)
-    .json(new ApiResponse(true, "Doctors assigned successfully", { assignments: result }));
+    .json(new ApiResponse(true, `Request ${action === "ACCEPT" ? "approved" : "rejected"}`, { association }));
 });
 
-export const getMyAssignedDoctors = asyncHandler(async (req, res) => {
-  const doctors = await clinicService.getMyAssignedDoctors(req.user.id);
-  res.status(200).json(new ApiResponse(true, "Assigned doctors fetched", { doctors }));
+export const getMyReceivedRequests = asyncHandler(async (req, res) => {
+  const requests = await doctorService.getMyReceivedRequests(req.user.id);
+  res.status(200).json(new ApiResponse(true, "Received requests fetched", { requests }));
 });
 
-export const changeStaffPassword = asyncHandler(async (req, res) => {
-  const data = changeStaffPasswordSchema.parse(req.body);
-  await clinicService.changeStaffPassword(req.user.id, data);
-  res.status(200).json(new ApiResponse(true, "Password updated successfully"));
+export const getMySentRequests = asyncHandler(async (req, res) => {
+  const requests = await doctorService.getMySentRequests(req.user.id);
+  res.status(200).json(new ApiResponse(true, "Sent requests fetched", { requests }));
 });
 
-export const editDoctor = asyncHandler(async (req, res) => {
-  const data = updateDoctorSchema.parse(req.body);
-  const doctor = await clinicService.editDoctor(req.user.id, req.params.doctorId, data);
-  res.status(200).json(new ApiResponse(true, "Doctor updated successfully", { doctor }));
+export const cancelAssociation = asyncHandler(async (req, res) => {
+  const association = await doctorService.cancelAssociation(
+    req.user.id,
+    req.user.role,
+    req.params.associationId
+  );
+  res.status(200).json(new ApiResponse(true, "Association cancelled", { association }));
+});
+
+export const uploadProfilePhoto = asyncHandler(async (req, res) => {
+  if (!req.file) throw new ApiError(400, "No image file provided");
+  const doctor = await doctorService.uploadProfilePhoto(req.user.id, req.file.buffer);
+  res.status(200).json(new ApiResponse(true, "Profile photo uploaded", { doctor }));
 });

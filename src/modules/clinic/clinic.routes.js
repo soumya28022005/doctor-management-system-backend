@@ -2,7 +2,7 @@ import { Router } from "express";
 import * as clinicController from "./clinic.controller.js";
 import authMiddleware from "../../middlewares/auth.middleware.js";
 import roleMiddleware from "../../middlewares/role.middleware.js";
-
+import upload from "../../middlewares/upload.middleware.js";
 
 const router = Router();
 
@@ -13,6 +13,7 @@ router.patch("/profile", clinicController.updateMyProfile);
 
 router.post("/doctors", clinicController.addDoctor);
 router.get("/doctors", clinicController.listDoctors);
+router.patch("/doctors/:doctorId", clinicController.editDoctor);
 
 router.post("/receptionists", clinicController.addReceptionist);
 router.get("/receptionists", clinicController.listReceptionists);
@@ -20,6 +21,8 @@ router.get("/receptionists", clinicController.listReceptionists);
 router.post("/receptionists/assign-doctors", clinicController.assignDoctorsToReceptionist);
 router.patch("/staff/change-password", clinicController.changeStaffPassword);
 
-router.patch("/doctors/:doctorId", clinicController.editDoctor);
+router.patch("/requests/:associationId/respond", clinicController.respondToDoctorRequest);
 
-export default router;
+router.post("/logo", upload.single("photo"), clinicController.uploadLogo);
+
+export default router; 

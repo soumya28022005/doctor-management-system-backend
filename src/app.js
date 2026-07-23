@@ -20,6 +20,7 @@ import appointmentRoutes from "./modules/appointment/appointment.routes.js";
 import queueRoutes from "./modules/queue/queue.routes.js";
 
 import announcementRoutes from "./modules/announcement/announcement.routes.js";
+import doctorRoutes from "./modules/doctor/doctor.routes.js";
 
 const app = express();
 
@@ -55,6 +56,8 @@ app.use("/api/v1/appointments", appointmentRoutes);
 app.use("/api/v1/queue", queueRoutes);
 
 app.use("/api/v1/announcements", announcementRoutes);
+
+app.use("/api/v1/doctors", doctorRoutes);
 
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);

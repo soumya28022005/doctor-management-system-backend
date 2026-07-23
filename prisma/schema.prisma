@@ -49,6 +49,30 @@ enum BookingSource {
   PHONE
 }
 
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+enum RequestedBy {
+  DOCTOR
+  CLINIC
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+
 model User {
   id             String       @id @default(uuid())
   name           String
@@ -86,14 +110,16 @@ model Clinic {
   pincode    String?
   latitude   Float?
   longitude  Float?
+  logo       String?
   isApproved Boolean  @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  doctors       Doctor[]
-  receptionists Receptionist[]
-  announcements Announcement[]
+  doctors             Doctor[]
+  receptionists       Receptionist[]
+  announcements       Announcement[]
+  doctorAssociations  DoctorClinicAssociation[]
 
   @@map("clinics")
 }
@@ -110,7 +136,8 @@ model Doctor {
   fee            Float?
   isVerified     Boolean   @default(false)
   queueMode      QueueMode @default(LIVE)
-  startTime      String?   // "HH:mm" 24-hour format, e.g. "10:00" — daily consultation start time
+  startTime      String?
+  profilePhoto   String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -119,6 +146,7 @@ model Doctor {
   queues                Queue[]
   appointments          Appointment[]
   announcements         Announcement[]
+  clinicAssociations    DoctorClinicAssociation[]
 
   @@map("doctors")
 }
@@ -272,3 +300,28 @@ model Announcement {
 
   @@map("announcements")
 }
+
+model DoctorClinicAssociation {
+  id       String @id @default(uuid())
+  doctor   Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  doctorId String
+  clinic   Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  clinicId String
+
+  fee       Float?
+  queueMode QueueMode @default(LIVE)
+
+  dayOfWeek DayOfWeek
+  startTime String // "HH:mm"
+  endTime   String // "HH:mm"
+
+  status      RequestStatus @default(PENDING)
+  requestedBy RequestedBy
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("doctor_clinic_associations")
+}
+
+
