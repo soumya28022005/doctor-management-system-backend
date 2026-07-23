@@ -25,4 +25,4 @@ router.patch("/requests/:associationId/respond", clinicController.respondToDocto
 
 router.post("/logo", upload.single("photo"), clinicController.uploadLogo);
 
-export default router; 
+export default router;

@@ -1,6 +1,8 @@
 import ApiError from "../../utils/apiError.js";
 import { hashPassword } from "../auth/auth.helper.js";
 import { findUserByEmail, updateUserPassword } from "../auth/auth.repository.js";
+import { uploadBufferToCloudinary } from "../../utils/cloudinaryUpload.js";
+import { respondToDoctorRequest as respondToDoctorRequestCore } from "../doctor/doctor.service.js";
 import {
   findClinicByUserId,
   updateClinicProfile,
@@ -13,13 +15,10 @@ import {
   assignDoctorsToReceptionist,
   findAssignedDoctorsForReceptionistUser,
   findDoctorOrReceptionistUser,
+  updateDoctor,
+  searchClinicsByName,
+  updateClinicLogo,
 } from "./clinic.repository.js";
-import { uploadBufferToCloudinary } from "../../utils/cloudinaryUpload.js";
-import { updateClinicLogo } from "./clinic.repository.js";
-
-import { updateDoctor } from "./clinic.repository.js";
-import { searchClinicsByName } from "./clinic.repository.js";
-import { respondToDoctorRequest as respondToDoctorRequestCore } from "../doctor/doctor.service.js";
 
 export const getMyClinicProfile = async (userId) => {
   const clinic = await findClinicByUserId(userId);
@@ -54,6 +53,18 @@ export const addDoctor = async (clinicUserId, payload) => {
 
   const { password, refreshToken, ...safeUser } = user;
   return { user: safeUser, doctor };
+};
+
+export const editDoctor = async (clinicUserId, doctorId, data) => {
+  const clinic = await findClinicByUserId(clinicUserId);
+  if (!clinic) throw new ApiError(404, "Clinic profile not found");
+
+  const doctor = await findDoctorById(doctorId);
+  if (!doctor || doctor.clinicId !== clinic.id) {
+    throw new ApiError(404, "Doctor not found in your clinic");
+  }
+
+  return updateDoctor(doctorId, data);
 };
 
 export const addReceptionist = async (clinicUserId, payload) => {
@@ -135,18 +146,6 @@ export const changeStaffPassword = async (clinicUserId, { userId, newPassword })
   await updateUserPassword(userId, hashedPassword);
 };
 
-export const editDoctor = async (clinicUserId, doctorId, data) => {
-  const clinic = await findClinicByUserId(clinicUserId);
-  if (!clinic) throw new ApiError(404, "Clinic profile not found");
-
-  const doctor = await findDoctorById(doctorId);
-  if (!doctor || doctor.clinicId !== clinic.id) {
-    throw new ApiError(404, "Doctor not found in your clinic");
-  }
-
-  return updateDoctor(doctorId, data);
-};
-
 export const searchByName = async (name) => {
   return searchClinicsByName(name);
 };
@@ -154,7 +153,6 @@ export const searchByName = async (name) => {
 export const respondToDoctorRequest = async (clinicUserId, associationId, action) => {
   return respondToDoctorRequestCore(clinicUserId, associationId, action);
 };
-
 
 export const uploadLogo = async (clinicUserId, fileBuffer) => {
   const clinic = await findClinicByUserId(clinicUserId);

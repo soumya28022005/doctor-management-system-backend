@@ -114,9 +114,11 @@ export const findDoctorOrReceptionistUser = async (userId, clinicId) => {
 
   return null;
 };
+
 export const updateDoctor = (id, data) => {
   return prisma.doctor.update({ where: { id }, data });
 };
+
 export const searchClinicsByName = (name) => {
   return prisma.clinic.findMany({
     where: {
@@ -131,4 +133,8 @@ export const searchClinicsByName = (name) => {
       logo: true,
     },
   });
+};
+
+export const updateClinicLogo = (clinicId, logo) => {
+  return prisma.clinic.update({ where: { id: clinicId }, data: { logo } });
 };
