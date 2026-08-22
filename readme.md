@@ -1,3 +1,6 @@
+# Doctor & Clinic Management System (Monorepo)
+
+This repository is organized as an **`apps/` + `packages/` monorepo layout**, housing the complete multi-tenant Doctor & Clinic Management System, including the Express/Prisma backend, patient web portal, staff dashboard, and shared TypeScript libraries.
 # Jeet Backend — Doctor Appointment & Clinic Management System
 
 A production-grade backend for a multi-clinic, multi-role healthcare appointment, queue, and diagnostic-referral platform. Built with Node.js, Express, Prisma, PostgreSQL (Supabase), Redis, and Socket.io.
@@ -210,94 +213,83 @@ docker-compose.yml
 
 ---
 
-## Getting Started
+## 🏗️ Monorepo Architecture Overview
 
-```bash
-git clone https://github.com/soumya28022005/doctor-management-system-backend.git
-cd "jeet backend"
-npm install
-cp .env.example .env   # fill in real values — see below
-npx prisma generate
-npx prisma migrate dev
-node prisma/seed.js    # creates Super Admin + platform settings row
-npm run dev
+```text
+.
+├── apps/
+│   ├── patient-web/         # Next.js App Router: Public Marketing & Patient Portal
+│   └── staff-dashboard/     # Next.js App Router: Multi-Role Staff Portal (Super Admin, Admin, Clinic, Doctor, Receptionist)
+│
+├── packages/
+│   ├── api-client/          # Shared typed HTTP (Axios/Fetch) & Socket.io client
+│   ├── types/               # Shared TypeScript domain types & API contracts
+│   ├── ui/                  # Shared Tailwind CSS UI component library
+│   ├── utils/               # Shared helper routines & date/token formatters
+│   └── config/              # Shared ESLint, Tailwind, and TypeScript configurations
+│
+├── prisma/                  # Prisma ORM Database Schema & Migration files
+├── src/                     # Express.js REST API & WebSocket Backend server
+├── basics.md                # Comprehensive backend technical documentation
+├── docker-compose.yml       # Docker Compose setup for App & Redis
+├── Dockerfile               # Node.js Alpine production container definition
+├── package.json             # Root npm workspaces manifest
+└── turbo.json               # Turbo repo build pipeline configuration
 ```
 
 ---
 
-## Environment Variables
+## 👥 Role & Application Mapping
 
-See `.env.example` for the full list. Key ones:
+The system supports **6 Backend Roles** mapped across two dedicated Next.js applications:
 
-```
-NODE_ENV=development
-PORT=8000
+### 1. `apps/patient-web` (Public Site & Patient Portal)
+- **Role**: `PATIENT` & Guest Visitors.
+- **Routes**:
+  - `(public)`: Public marketing homepage, doctor directory, clinic search, announcements.
+  - `(auth)`: Patient registration, authentication, password recovery.
+  - `(patient)`: Protected patient portal for booking appointments, tracking live queue positions, viewing e-prescriptions, managing family profiles, and submitting clinic reviews.
 
-DATABASE_URL=            # Supabase pooled connection (port 6543, ?pgbouncer=true)
-DIRECT_URL=              # Supabase direct connection (port 5432) — required for migrations
-
-JWT_ACCESS_SECRET=
-JWT_REFRESH_SECRET=
-JWT_ACCESS_EXPIRES_IN=15m
-JWT_REFRESH_EXPIRES_IN=7d
-
-REDIS_URL=               # redis://localhost:6379 locally, rediss://... (TLS) on Upstash in prod
-
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-GOOGLE_CALLBACK_URL=
-
-SMTP_HOST=
-SMTP_PORT=
-SMTP_USER=
-SMTP_PASS=
-
-CLOUDINARY_CLOUD_NAME=
-CLOUDINARY_API_KEY=
-CLOUDINARY_API_SECRET=
-
-CLIENT_URL=              # frontend URL, used for CORS and OAuth redirect
-```
-
-**Never commit `.env`.**
+### 2. `apps/staff-dashboard` (Staff Operations Portal)
+- **Roles**: `SUPER_ADMIN`, `ADMIN`, `CLINIC`, `DOCTOR`, `RECEPTIONIST`.
+- **Role-Gated Route Groups**:
+  - `(auth)`: Staff authentication portal & multi-role login.
+  - `(super-admin)`: Global platform parameters, administrative account control.
+  - `(admin)`: Clinic approvals, doctor verification, system-wide announcements.
+  - `(clinic)`: Clinic profile, operating hours, holiday schedules, staff assignments.
+  - `(doctor)`: Live queue management (`LIVE`, `PRIVATE`, `TIME_SLOT`), patient visit completion, e-prescription generation, consultation fees.
+  - `(receptionist)`: Front-desk live queue desk (`QueueDeskClient`), walk-in token issuance (`WalkInRegistration`), manual patient registration.
 
 ---
 
-## Database
+## 📦 Shared Packages (`packages/`)
 
-- PostgreSQL, hosted on Supabase
-- Prisma ORM — schema in `prisma/schema.prisma`
-- Migrations tracked in `prisma/migrations/`
-- Seed script creates the initial Super Admin account and the single required `PlatformSetting` row
-
-```bash
-npx prisma migrate deploy   # apply migrations against a fresh database
-```
+- **`@doctor/api-client`**: Pre-configured typed client for consuming REST APIs and subscribing to live Socket.io queue events (`joinQueue`, `tokenUpdated`).
+- **`@doctor/types`**: Shared TypeScript interfaces matching Prisma models (`User`, `Clinic`, `Doctor`, `Patient`, `Appointment`, `Queue`, `Prescription`).
+- **`@doctor/ui`**: Reusable design system components styled with Tailwind CSS.
+- **`@doctor/utils`**: Date/time formatters, estimated wait time calculators, and data transformation functions.
+- **`@doctor/config`**: Base presets for ESLint rules, Tailwind themes, and TSConfig settings.
 
 ---
 
-## Running with Docker
+## 🚀 Getting Started
 
-```bash
-docker compose up --build
-```
+### Prerequisites
+- Node.js >= 20.x
+- npm >= 10.x
+- Docker & Docker Compose (optional)
 
-Starts the app (port 8000) plus a local Redis container. Postgres always points at Supabase, even in local Docker development.
+### Setup & Installation
 
----
+1. **Install Workspace Dependencies**:
+   ```bash
+   npm install
+   ```
 
-## Deployment
-
-Deployed on **Render**, connected directly to this GitHub repo — every push to `main` triggers an automatic rebuild from the `Dockerfile`.
-
-- **Database:** Supabase
-- **Redis:** Upstash (`rediss://` TLS connection string)
-- **Environment variables:** set individually in Render's dashboard, never committed
-
----
-
-## API Documentation
-
+2. **Backend Development Server**:
+   ```bash
+   npm run dev
+   ```
 Interactive Swagger UI at `/api-docs` — **only available when `NODE_ENV !== "production"`**, intentionally disabled in production.
 
 ---
@@ -333,6 +325,13 @@ Deliberately deferred:
 
 ---
 
-## License
+3. **Frontend Applications (Turbo)**:
+   ```bash
+   npm run dev:frontend
+   ```
 
-Private project — not currently licensed for public/commercial reuse.
+4. **Prisma Database Commands**:
+   ```bash
+   npm run prisma:generate
+   npm run prisma:migrate
+   ```
