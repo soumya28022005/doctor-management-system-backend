@@ -505,3 +505,13 @@ enum NotificationType {
   CONNECTION_REQUEST_RESPONDED
   GENERAL
 }
+
+model SearchLocation {
+  id        String   @id @default(uuid())
+  nameEn    String   // English Name
+  nameBn    String   // Bengali Name
+  nameHi    String   // Hindi Name
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
