@@ -1,5 +1,13 @@
 import prisma from "../../config/db.config.js";
 
+export const getPlatformSettings = () => {
+  return prisma.platformSetting.findFirst();
+};
+
+export const updatePlatformSettings = (id, data) => {
+  return prisma.platformSetting.update({ where: { id }, data });
+};
+
 export const findAllClinics = ({ isApproved, page = 1, limit = 20 }) => {
   const where = typeof isApproved === "boolean" ? { isApproved } : {};
   return prisma.clinic.findMany({
@@ -68,15 +76,6 @@ export const getPlatformStats = async () => {
   };
 };
 
-export const getPlatformSettings = () => {
-  return prisma.platformSetting.findFirst();
-};
-
-export const updatePlatformSettings = (id, data) => {
-  return prisma.platformSetting.update({ where: { id }, data });
-};
-
-// super admin to admin
 export const createAdminUser = (data) => {
   return prisma.user.create({
     data: { ...data, role: "ADMIN", selfRegistered: false, isVerified: true },
@@ -108,6 +107,13 @@ export const createDiagnosticCenterUser = ({ userData, centerName }) => {
     });
 
     return { user, diagnosticCenter };
+  });
+};
+
+export const updateDiagnosticCenterProfile = (id, data) => {
+  return prisma.diagnosticCenter.update({
+    where: { id },
+    data,
   });
 };
 

@@ -1,8 +1,19 @@
 import { notifyUser } from "../notification/notification.service.js";
 import ApiError from "../../utils/apiError.js";
-import { getPlatformSettings, updatePlatformSettings } from "./admin.repository.js";
+import { hashPassword } from "../auth/auth.helper.js";
+import { findUserByEmail } from "../auth/auth.repository.js";
+import { updateClinicProfile } from "../clinic/clinic.repository.js";
 
 import {
+  findAllUsers,
+  countUsers,
+  findUserByIdRaw,
+  setUserActiveStatus,
+} from "../user/user.repository.js";
+
+import {
+  getPlatformSettings,
+  updatePlatformSettings,
   findAllClinics,
   countClinics,
   findClinicByIdRaw,
@@ -11,24 +22,16 @@ import {
   findDoctorByIdRaw,
   setDoctorVerification,
   getPlatformStats,
+  createAdminUser,
+  createClinicUser,
+  createDiagnosticCenterUser,
+  updateDiagnosticCenterProfile,
+  findAllDiagnosticCenters,
+  findDiagnosticCenterByIdRaw,
+  setDiagnosticCenterApproval,
+  setDoctorFeatured,
+  findFeaturedDoctors,
 } from "./admin.repository.js";
-import {
-  findAllUsers,
-  countUsers,
-  findUserByIdRaw,
-  setUserActiveStatus,
-} from "../user/user.repository.js";
-
-import { hashPassword } from "../auth/auth.helper.js";
-import { findUserByEmail } from "../auth/auth.repository.js";
-import { createAdminUser } from "./admin.repository.js";
-
-import { createDiagnosticCenterUser, 
-  findAllDiagnosticCenters, 
-  findDiagnosticCenterByIdRaw, 
-  setDiagnosticCenterApproval } from "./admin.repository.js";
-
-  import prisma from "../../config/db.config.js";
 
 export const getSettings = async () => {
   const settings = await getPlatformSettings();
@@ -126,8 +129,9 @@ export const getStats = async () => {
   return getPlatformStats();
 };
 
-// super admin to admin
-
+// ----------------------------------------------------------------------
+// User Creation Methods
+// ----------------------------------------------------------------------
 
 export const createAdmin = async ({ name, email, password, phone }) => {
   const existing = await findUserByEmail(email);
@@ -139,9 +143,6 @@ export const createAdmin = async ({ name, email, password, phone }) => {
   const { password: _pw, refreshToken, ...safeUser } = user;
   return safeUser;
 };
-
-import { createClinicUser } from "./admin.repository.js";
-import { updateClinicProfile } from "../clinic/clinic.repository.js";
 
 export const createClinic = async ({ name, email, password, phone, clinicName, address, city, state, pincode }) => {
   const existing = await findUserByEmail(email);
@@ -174,15 +175,17 @@ export const createDiagnosticCenter = async ({ name, email, password, phone, cen
 
   let finalCenter = diagnosticCenter;
   if (address || city || state || pincode) {
-    finalCenter = await prisma.diagnosticCenter.update({
-      where: { id: diagnosticCenter.id },
-      data: { address, city, state, pincode },
-    });
+    // Moved Prisma DB call from service layer to repository layer
+    finalCenter = await updateDiagnosticCenterProfile(diagnosticCenter.id, { address, city, state, pincode });
   }
 
   const { password: _pw, refreshToken, ...safeUser } = user;
   return { user: safeUser, diagnosticCenter: finalCenter };
 };
+
+// ----------------------------------------------------------------------
+// Diagnostic Center Methods
+// ----------------------------------------------------------------------
 
 export const listDiagnosticCenters = async ({ isApproved, page, limit }) => {
   return findAllDiagnosticCenters({ isApproved, page, limit });
@@ -200,6 +203,10 @@ export const revokeDiagnosticCenterApproval = async (id) => {
   if (!center) throw new ApiError(404, "Diagnostic center not found");
   return setDiagnosticCenterApproval(id, false);
 };
+
+// ----------------------------------------------------------------------
+// Featured Doctors Methods
+// ----------------------------------------------------------------------
 
 export const setDoctorFeaturedStatus = async (doctorId, isFeatured, featuredOrder) => {
   const doctor = await findDoctorByIdRaw(doctorId);
