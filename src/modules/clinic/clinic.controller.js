@@ -1,3 +1,4 @@
+import prisma from "../../config/db.config.js";
 import asyncHandler from "../../utils/asyncHandler.js";
 import ApiResponse from "../../utils/apiResponse.js";
 import ApiError from "../../utils/apiError.js";
@@ -139,3 +140,86 @@ export const getMyReceivedRequests = asyncHandler(async (req, res) => {
   const requests = await clinicService.getMyReceivedRequests(req.user.id);
   res.status(200).json(new ApiResponse(true, "Received requests fetched", { requests }));
 });
+
+// ==========================================
+// 1. PUBLIC: Sob Clinic fetch korar jonno
+// ==========================================
+export const getAllClinics = async (req, res) => {
+  try {
+    const clinics = await prisma.clinic.findMany({
+      where: { 
+        isApproved: true // Sudhu approved clinic dekhabe
+      },
+      include: {
+        user: { select: { name: true, email: true, avatar: true } }
+      },
+      orderBy: {
+        createdAt: 'desc' // Notun clinic gulo aage asbe
+      }
+    });
+    
+    res.status(200).json({ success: true, data: clinics });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+// ==========================================
+// 2. PUBLIC: Sudhu Featured Clinic fetch korar jonno
+// ==========================================
+export const getFeaturedClinics = async (req, res) => {
+  try {
+    const featuredClinics = await prisma.clinic.findMany({
+      where: { 
+        isFeatured: true,
+        isApproved: true 
+      },
+      orderBy: {
+        featuredOrder: 'asc' // Admin je order-e set korbe sei bhabe asbe
+      },
+      include: {
+        user: { select: { name: true, email: true, avatar: true } }
+      }
+    });
+    
+    res.status(200).json({ success: true, data: featuredClinics });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+// ==========================================
+// 3. ADMIN: Clinic featured status change korar jonno
+// ==========================================
+export const toggleClinicFeaturedStatus = async (req, res) => {
+  try {
+    const { clinicId } = req.params;
+    const { isFeatured, featuredOrder } = req.body;
+
+    const clinicExists = await prisma.clinic.findUnique({
+      where: { id: clinicId }
+    });
+
+    if (!clinicExists) {
+      return res.status(404).json({ success: false, message: "Clinic not found" });
+    }
+
+    const updatedClinic = await prisma.clinic.update({
+      where: { id: clinicId },
+      data: { 
+        isFeatured: isFeatured !== undefined ? isFeatured : clinicExists.isFeatured,
+        featuredOrder: featuredOrder !== undefined ? featuredOrder : clinicExists.featuredOrder 
+      }
+    });
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Clinic featured status updated successfully",
+      data: updatedClinic 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

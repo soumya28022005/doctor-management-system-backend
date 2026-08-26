@@ -7,6 +7,127 @@ import upload from "../../middlewares/upload.middleware.js";
 
 const router = Router();
 
+// =========================================================================
+// 1. PUBLIC ROUTES (No Auth Required)
+// =========================================================================
+
+/**
+ * @swagger
+ * /doctors/featured:
+ *   get:
+ *     summary: Get all featured and verified doctors
+ *     tags: [Doctor (Public)]
+ *     responses:
+ *       200:
+ *         description: List of featured doctors fetched successfully
+ */
+router.get("/featured", doctorController.getFeaturedDoctors);
+
+/**
+ * @swagger
+ * /doctors/available:
+ *   get:
+ *     summary: Get all currently available and verified doctors
+ *     tags: [Doctor (Public)]
+ *     responses:
+ *       200:
+ *         description: List of available doctors fetched successfully
+ */
+router.get("/available", doctorController.getAvailableDoctors);
+
+/**
+ * @swagger
+ * /doctors:
+ *   get:
+ *     summary: Get all verified doctors
+ *     tags: [Doctor (Public)]
+ *     responses:
+ *       200:
+ *         description: List of all doctors fetched successfully
+ */
+router.get("/", doctorController.getAllDoctors);
+
+
+// =========================================================================
+// 2. ADMIN ROUTES (Only Admin/Super Admin)
+// =========================================================================
+
+/**
+ * @swagger
+ * /doctors/{doctorId}/featured:
+ *   patch:
+ *     summary: Mark a doctor as featured or un-featured (Admin Only)
+ *     tags: [Doctor (Admin)]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: doctorId
+ *         required: true
+ *         schema: 
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               isFeatured: { type: boolean, example: true }
+ *               featuredOrder: { type: integer, example: 1 }
+ *     responses:
+ *       200:
+ *         description: Doctor featured status updated successfully
+ */
+router.patch(
+  "/:doctorId/featured",
+  authMiddleware,
+  roleMiddleware("ADMIN", "SUPER_ADMIN"),
+  doctorController.toggleDoctorFeaturedStatus
+);
+
+
+// =========================================================================
+// 3. MIXED ROLES ROUTES (Admin, Clinic, Doctor)
+// =========================================================================
+
+/**
+ * @swagger
+ * /doctors/{doctorId}/available:
+ *   patch:
+ *     summary: Change a doctor's availability status (Doctor, Clinic, Admin)
+ *     tags: [Doctor (Mixed Roles)]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: doctorId
+ *         required: true
+ *         schema: 
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               isAvailable: { type: boolean, example: false }
+ *     responses:
+ *       200:
+ *         description: Doctor availability updated successfully
+ *       403:
+ *         description: Access Denied
+ */
+router.patch(
+  "/:doctorId/available",
+  authMiddleware,
+  roleMiddleware("ADMIN", "SUPER_ADMIN", "CLINIC", "DOCTOR"),
+  doctorController.toggleDoctorAvailability
+);
+
 /**
  * @swagger
  * /doctors/search:

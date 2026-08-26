@@ -123,3 +123,48 @@ export const findUpcomingLeaves = (doctorId, clinicId) => {
     orderBy: { date: "asc" },
   });
 };
+
+export const getAllVerifiedDoctors = async () => {
+  return await prisma.doctor.findMany({
+    where: { isVerified: true },
+    include: {
+      user: { select: { name: true, email: true, avatar: true } },
+      clinic: { select: { clinicName: true, address: true, city: true } }
+    }
+  });
+};
+
+export const getFeaturedDoctors = async () => {
+  return await prisma.doctor.findMany({
+    where: { isVerified: true, isFeatured: true },
+    orderBy: { featuredOrder: 'asc' },
+    include: {
+      user: { select: { name: true, email: true, avatar: true } },
+      clinic: { select: { clinicName: true, address: true } }
+    }
+  });
+};
+
+export const getAvailableDoctors = async () => {
+  return await prisma.doctor.findMany({
+    where: { isVerified: true, isAvailable: true },
+    include: {
+      user: { select: { name: true, email: true, avatar: true } },
+      clinic: { select: { clinicName: true, address: true } }
+    }
+  });
+};
+
+export const getDoctorByIdWithClinic = async (doctorId) => {
+  return await prisma.doctor.findUnique({
+    where: { id: doctorId },
+    include: { clinic: true }
+  });
+};
+
+export const updateDoctorDetails = async (doctorId, data) => {
+  return await prisma.doctor.update({
+    where: { id: doctorId },
+    data
+  });
+};

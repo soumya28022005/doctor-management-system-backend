@@ -17,6 +17,11 @@ import {
   removeDoctorLeave,
   findLeaveForDate,
   findUpcomingLeaves,
+  getAllVerifiedDoctors,
+  getFeaturedDoctors,
+  getAvailableDoctors,
+  getDoctorByIdWithClinic,
+  updateDoctorDetails
 } from "./doctor.repository.js";
 import { findConflict } from "./schedule.helper.js";
 import { uploadBufferToCloudinary, deleteFromCloudinary } from "../../utils/cloudinaryUpload.js";
@@ -377,4 +382,57 @@ export const notifyDoctorDelay = async (user, doctorId, clinicId, delayMinutes) 
   );
 
   return { notified: appointments.length };
+};
+
+// ==============================================
+// DOCTOR FETCH & STATUS UPDATE SERVICES
+// ==============================================
+
+export const fetchAllDoctors = async () => {
+  return await getAllVerifiedDoctors();
+};
+
+export const fetchFeaturedDoctors = async () => {
+  return await getFeaturedDoctors();
+};
+
+export const fetchAvailableDoctors = async () => {
+  return await getAvailableDoctors();
+};
+
+export const updateFeaturedStatus = async (doctorId, isFeatured, featuredOrder) => {
+  const doctor = await getDoctorByIdWithClinic(doctorId);
+  if (!doctor) throw new ApiError(404, "Doctor not found");
+
+  const dataToUpdate = {
+    isFeatured: isFeatured !== undefined ? isFeatured : doctor.isFeatured,
+    featuredOrder: featuredOrder !== undefined ? featuredOrder : doctor.featuredOrder
+  };
+
+  return await updateDoctorDetails(doctorId, dataToUpdate);
+};
+
+export const updateAvailabilityStatus = async (doctorId, isAvailable, userId, userRole) => {
+  const doctor = await getDoctorByIdWithClinic(doctorId);
+  if (!doctor) throw new ApiError(404, "Doctor not found");
+
+  // --- PERMISSION LOGIC ---
+  let canUpdate = false;
+  if (userRole === "SUPER_ADMIN" || userRole === "ADMIN") {
+    canUpdate = true;
+  } else if (userRole === "DOCTOR" && doctor.userId === userId) {
+    canUpdate = true;
+  } else if (userRole === "CLINIC" && doctor.clinic.userId === userId) {
+    canUpdate = true;
+  }
+
+  if (!canUpdate) {
+    throw new ApiError(403, "Access Denied: Tumi ei doctor er availability change korte parbe na.");
+  }
+
+  const dataToUpdate = {
+    isAvailable: isAvailable !== undefined ? isAvailable : !doctor.isAvailable
+  };
+
+  return await updateDoctorDetails(doctorId, dataToUpdate);
 };

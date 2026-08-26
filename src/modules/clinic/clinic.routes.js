@@ -6,6 +6,87 @@ import upload from "../../middlewares/upload.middleware.js";
 
 const router = Router();
 
+// =========================================================================
+// 1. PUBLIC ROUTES (No Auth Required)
+// =========================================================================
+
+/**
+ * @swagger
+ * /clinic/featured:
+ *   get:
+ *     summary: Get all featured and approved clinics
+ *     tags: [Clinic (Public)]
+ *     responses:
+ *       200:
+ *         description: List of featured clinics fetched successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get("/featured", clinicController.getFeaturedClinics);
+
+/**
+ * @swagger
+ * /clinic:
+ *   get:
+ *     summary: Get all approved clinics
+ *     tags: [Clinic (Public)]
+ *     responses:
+ *       200:
+ *         description: List of all clinics fetched successfully
+ *       500:
+ *         description: Internal server error
+ */
+router.get("/", clinicController.getAllClinics);
+
+// =========================================================================
+// 2. ADMIN ROUTES (Only Admin/Super Admin)
+// =========================================================================
+
+/**
+ * @swagger
+ * /clinic/{clinicId}/featured:
+ *   patch:
+ *     summary: Mark a clinic as featured or un-featured (Admin Only)
+ *     tags: [Clinic (Admin)]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: clinicId
+ *         required: true
+ *         schema: 
+ *           type: string
+ *           format: uuid
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               isFeatured: { type: boolean, example: true }
+ *               featuredOrder: { type: integer, example: 1 }
+ *     responses:
+ *       200:
+ *         description: Clinic featured status updated successfully
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (Admin role required)
+ *       404:
+ *         description: Clinic not found
+ */
+router.patch(
+  "/:clinicId/featured",
+  authMiddleware,
+  roleMiddleware("ADMIN", "SUPER_ADMIN"),
+  clinicController.toggleClinicFeaturedStatus
+);
+
+// =========================================================================
+// 3. CLINIC PROTECTED ROUTES (Only Clinic Role)
+// =========================================================================
+// Industry Standard: Applying middleware globally for all routes defined BELOW this line.
 router.use(authMiddleware, roleMiddleware("CLINIC"));
 
 /**
@@ -356,6 +437,16 @@ router.get("/holidays", clinicController.listHolidays);
  */
 router.patch("/online-consultation", clinicController.toggleOnlineConsultation);
 
+/**
+ * @swagger
+ * /clinic/requests/received:
+ *   get:
+ *     summary: Get all doctor association requests received by the clinic
+ *     tags: [Clinic]
+ *     responses:
+ *       200:
+ *         description: Successfully fetched received requests
+ */
 router.get("/requests/received", clinicController.getMyReceivedRequests);
 
 export default router;

@@ -36,36 +36,43 @@ model User {
 }
 
 model Clinic {
-  id                          String                    @id @default(uuid())
-  userId                      String                    @unique
-  clinicName                  String
-  address                     String?
-  city                        String?
-  state                       String?
-  pincode                     String?
-  isApproved                  Boolean                   @default(false)
-  createdAt                   DateTime                  @default(now())
-  updatedAt                   DateTime                  @updatedAt
-  latitude                    Float?
-  longitude                   Float?
-  logo                        String?
-  onlineConsultationEnabled   Boolean                   @default(true)
-  announcements               Announcement[]
-  appointments                Appointment[]
-  holidays                    ClinicHoliday[]
-  workingHours                ClinicWorkingHours[]
-  user                        User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  doctorAssociations          DoctorClinicAssociation[]
-  doctorLeaves                DoctorLeave[]
-  doctors                     Doctor[]
-  queues                      Queue[]
-  receptionistDoctors         ReceptionistDoctor[]
-  receptionists               Receptionist[]
-  reviews                     Review[]
+  id                        String                    @id @default(uuid())
+  userId                    String                    @unique
+  clinicName                String
+  address                   String?
+  city                      String?
+  state                     String?
+  pincode                   String?
+  isApproved                Boolean                   @default(false)
+  createdAt                 DateTime                  @default(now())
+  updatedAt                 DateTime                  @updatedAt
+  latitude                  Float?
+  longitude                 Float?
+  logo                      String?
+  onlineConsultationEnabled Boolean                   @default(true)
+  
+  // --- Notun add kora feature gulo ---
+  isFeatured                Boolean                   @default(false)
+  featuredOrder             Int                       @default(0)
+  // -----------------------------------
+
+  announcements             Announcement[]
+  appointments              Appointment[]
+  holidays                  ClinicHoliday[]
+  workingHours              ClinicWorkingHours[]
+  user                      User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  doctorAssociations        DoctorClinicAssociation[]
+  doctorLeaves              DoctorLeave[]
+  doctors                   Doctor[]
+  queues                    Queue[]
+  receptionistDoctors       ReceptionistDoctor[]
+  receptionists             Receptionist[]
+  reviews                   Review[]
   referredTestRecommendations TestRecommendation[]      @relation("ReferringClinic")
   targetedTestRecommendations TestRecommendation[]      @relation("TargetClinic")
-  testReferrals               TestReferral[]
+  testReferrals             TestReferral[]
 
+  @@index([isFeatured, featuredOrder]) // Data fast fetch korar jonno index
   @@map("clinics")
 }
 
@@ -86,6 +93,9 @@ model Doctor {
   avgConsultationMinutes Int?
   featuredOrder          Int                       @default(0)
   isFeatured             Boolean                   @default(false)
+  
+  isAvailable            Boolean                   @default(true)
+
   announcements          Announcement[]
   appointments           Appointment[]
   clinicAssociations     DoctorClinicAssociation[]

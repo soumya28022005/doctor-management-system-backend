@@ -1,3 +1,4 @@
+import prisma from "../../config/db.config.js";
 import asyncHandler from "../../utils/asyncHandler.js";
 import ApiResponse from "../../utils/apiResponse.js";
 import ApiError from "../../utils/apiError.js";
@@ -108,4 +109,80 @@ export const notifyDelay = asyncHandler(async (req, res) => {
     delayMinutes
   );
   res.status(200).json(new ApiResponse(true, "Delay notification sent", result));
+});
+
+// ==========================================
+// 1. PUBLIC: Sob Doctor
+// ==========================================
+export const getAllDoctors = asyncHandler(async (req, res) => {
+  const doctors = await doctorService.fetchAllDoctors();
+  
+  res.status(200).json(
+    new ApiResponse(true, "All doctors fetched successfully", doctors)
+  );
+});
+
+// ==========================================
+// 2. PUBLIC: Sudhu Featured Doctor
+// ==========================================
+export const getFeaturedDoctors = asyncHandler(async (req, res) => {
+  const doctors = await doctorService.fetchFeaturedDoctors();
+  
+  res.status(200).json(
+    new ApiResponse(true, "Featured doctors fetched successfully", doctors)
+  );
+});
+
+// ==========================================
+// 3. PUBLIC: Sudhu Available Doctor
+// ==========================================
+export const getAvailableDoctors = asyncHandler(async (req, res) => {
+  const doctors = await doctorService.fetchAvailableDoctors();
+  
+  res.status(200).json(
+    new ApiResponse(true, "Available doctors fetched successfully", doctors)
+  );
+});
+
+// ==========================================
+// 4. ADMIN ONLY: Doctor-ke featured kora
+// ==========================================
+export const toggleDoctorFeaturedStatus = asyncHandler(async (req, res) => {
+  const { doctorId } = req.params;
+  const { isFeatured, featuredOrder } = req.body;
+  
+  try {
+    const updatedDoctor = await doctorService.updateFeaturedStatus(doctorId, isFeatured, featuredOrder);
+    
+    res.status(200).json(
+      new ApiResponse(true, "Doctor featured status updated", updatedDoctor)
+    );
+  } catch (error) {
+    const statusCode = error.message === "Doctor not found" ? 404 : 500;
+    throw new ApiError(statusCode, error.message);
+  }
+});
+
+// ==========================================
+// 5. MIXED ROLES: Doctor-er availability change
+// ==========================================
+export const toggleDoctorAvailability = asyncHandler(async (req, res) => {
+  const { doctorId } = req.params;
+  const { isAvailable } = req.body;
+  const userId = req.user.id;
+  const userRole = req.user.role;
+
+  try {
+    const updatedDoctor = await doctorService.updateAvailabilityStatus(doctorId, isAvailable, userId, userRole);
+    
+    res.status(200).json(
+      new ApiResponse(true, "Doctor availability updated successfully", updatedDoctor)
+    );
+  } catch (error) {
+    let statusCode = 500;
+    if (error.message === "Doctor not found") statusCode = 404;
+    if (error.message.includes("Access Denied")) statusCode = 403;
+    
+    throw new ApiError(statusCode, error.message);
+  }
 });
