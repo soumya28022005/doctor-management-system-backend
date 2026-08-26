@@ -66,6 +66,7 @@ app.get("/api/v1/health", (req, res) => {
 });
 
 app.use("/api/v1/auth", authRoutes);
+app.use('/api/v1/locations', locationRoutes);
 app.use("/api/v1/clinic", clinicRoutes);
 app.use("/api/v1/receptionist", receptionistRoutes);
 app.use("/api/v1/admin", adminRoutes);
@@ -93,8 +94,6 @@ app.use("/api/v1/diagnostic-centers", diagnosticCenterRoutes);
 app.use("/api/v1/test-referrals", testReferralRoutes);
 
 app.use("/api/v1/analytics", analyticsRoutes);
-
-app.use('/api/v1/locations', locationRoutes);
 
 if (env.NODE_ENV == "development") {
   app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));

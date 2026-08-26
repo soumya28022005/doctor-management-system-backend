@@ -1,16 +1,10 @@
-import * as locationRepository from './location.repository.js';
-import ApiError from '../../utils/apiError.js';
+import * as locationRepo from './location.repository.js';
 
-export const addLocation = async (body) => {
-  const { nameEn, nameBn, nameHi } = body;
-
-  if (!nameEn || !nameBn || !nameHi) {
-    throw new ApiError(400, 'All language translations (English, Bengali, Hindi) are required.');
-  }
-
-  return await locationRepository.createSearchLocation({ nameEn, nameBn, nameHi });
+export const getAllLocations = async () => {
+  // রিপোজিটরি কল করে সব অ্যাক্টিভ লোকেশন রিটার্ন করবে
+  return await locationRepo.getActiveSearchLocations();
 };
 
-export const fetchLocations = async () => {
-  return await locationRepository.getActiveSearchLocations();
+export const addLocation = async (data) => {
+  return await locationRepo.createSearchLocation(data);
 };

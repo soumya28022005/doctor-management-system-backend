@@ -1,17 +1,17 @@
 import express from 'express';
 import * as locationController from './location.controller.js';
-import authMiddleware from '../../middlewares/auth.middleware.js'; // Updated
-import roleMiddleware from '../../middlewares/role.middleware.js'; // Updated
+import authMiddleware from '../../middlewares/auth.middleware.js';
+import roleMiddleware from '../../middlewares/role.middleware.js';
 
 const router = express.Router();
 
-// Public route for frontend search bar
+// ✅ ১. Public Route: পেশেন্টরা সার্চ বারে লোকেশন দেখার জন্য (এখানে কোনো টোকেন বা পারমিশন লাগবে না)
 router.get('/', locationController.getLocations);
 
-// Protected route for Admin panel
+// 🔒 ২. Protected Route: অ্যাডমিন লোকেশন অ্যাড করার জন্য (এখানে টোকেন এবং রোল লাগবে)
 router.post(
   '/', 
-  authMiddleware, // 'protect' এর বদলে 'authMiddleware'
+  authMiddleware, 
   roleMiddleware('SUPER_ADMIN', 'ADMIN'), 
   locationController.createLocation
 );
