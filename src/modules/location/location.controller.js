@@ -19,3 +19,22 @@ export const createLocation = asyncHandler(async (req, res) => {
     new ApiResponse(true, "Location added successfully", location)
   );
 });
+
+// একদম নিচে এগুলো পেস্ট করুন
+export const getAdminLocations = asyncHandler(async (req, res) => {
+  const locations = await locationService.getAdminLocations();
+  return res.status(200).json(new ApiResponse(true, "Admin locations fetched", locations));
+});
+
+export const toggleLocation = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { isActive } = req.body;
+  const updated = await locationService.toggleLocationStatus(id, isActive);
+  return res.status(200).json(new ApiResponse(true, "Location status updated", updated));
+});
+
+export const deleteLocation = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  await locationService.deleteLocation(id);
+  return res.status(200).json(new ApiResponse(true, "Location deleted", null));
+});

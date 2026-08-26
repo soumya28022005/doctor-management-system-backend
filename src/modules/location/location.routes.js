@@ -5,15 +5,18 @@ import roleMiddleware from '../../middlewares/role.middleware.js';
 
 const router = express.Router();
 
-// ✅ ১. Public Route: পেশেন্টরা সার্চ বারে লোকেশন দেখার জন্য (এখানে কোনো টোকেন বা পারমিশন লাগবে না)
+// Public: পেশেন্টদের জন্য (শুধু Active লোকেশন যাবে)
 router.get('/', locationController.getLocations);
 
-// 🔒 ২. Protected Route: অ্যাডমিন লোকেশন অ্যাড করার জন্য (এখানে টোকেন এবং রোল লাগবে)
-router.post(
-  '/', 
-  authMiddleware, 
-  roleMiddleware('SUPER_ADMIN', 'ADMIN'), 
-  locationController.createLocation
-);
+// Protected: Admin/Super Admin এর জন্য
+router.get('/admin', authMiddleware, roleMiddleware('SUPER_ADMIN', 'ADMIN'), locationController.getAdminLocations);
+
+router.post('/', authMiddleware, roleMiddleware('SUPER_ADMIN', 'ADMIN'), locationController.createLocation);
+
+// Status Change (Pause/Active)
+router.patch('/:id/toggle', authMiddleware, roleMiddleware('SUPER_ADMIN', 'ADMIN'), locationController.toggleLocation);
+
+// Delete Location
+router.delete('/:id', authMiddleware, roleMiddleware('SUPER_ADMIN', 'ADMIN'), locationController.deleteLocation);
 
 export default router;

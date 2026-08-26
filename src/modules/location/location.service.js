@@ -8,3 +8,16 @@ export const getAllLocations = async () => {
 export const addLocation = async (data) => {
   return await locationRepo.createSearchLocation(data);
 };
+
+// একদম নিচে এগুলো পেস্ট করুন
+export const getAdminLocations = async () => {
+  return await locationRepo.getAllSearchLocationsForAdmin();
+};
+
+export const toggleLocationStatus = async (id, isActive) => {
+  return await locationRepo.updateLocationStatus(id, isActive);
+};
+
+export const deleteLocation = async (id) => {
+  return await locationRepo.deleteSearchLocation(id);
+};

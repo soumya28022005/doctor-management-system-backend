@@ -13,3 +13,21 @@ export const getActiveSearchLocations = async () => {
     orderBy: { createdAt: 'desc' },
   });
 };
+
+// d and p
+export const getAllSearchLocationsForAdmin = async () => {
+  return await prisma.searchLocation.findMany({ orderBy: { createdAt: 'desc' } });
+};
+
+export const updateLocationStatus = async (id, isActive) => {
+  return await prisma.searchLocation.update({
+    where: { id },
+    data: { isActive },
+  });
+};
+
+export const deleteSearchLocation = async (id) => {
+  return await prisma.searchLocation.delete({
+    where: { id },
+  });
+};
