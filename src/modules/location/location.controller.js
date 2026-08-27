@@ -1,5 +1,5 @@
 import * as locationService from './location.service.js';
-import ApiResponse from '../../utils/ApiResponse.js';
+import ApiResponse from "../../utils/apiResponse.js";
 import asyncHandler  from '../../utils/asyncHandler.js';
 
 export const getLocations = asyncHandler(async (req, res) => {
