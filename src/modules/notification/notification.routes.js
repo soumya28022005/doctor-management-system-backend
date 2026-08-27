@@ -8,9 +8,17 @@ router.use(authMiddleware);
 
 /**
  * @swagger
+ * tags:
+ *   name: Notifications
+ *   description: 🚀 Real-time User Alert & Notification Management System
+ */
+
+/**
+ * @swagger
  * /notifications/me:
  *   get:
- *     summary: List my notifications (newest first)
+ *     summary: Retrieve personalized user notifications
+ *     description: Fetches a chronologically ordered list of real-time alerts and updates for the authenticated user.
  *     tags: [Notifications]
  *     parameters:
  *       - in: query
@@ -20,7 +28,7 @@ router.use(authMiddleware);
  *         name: limit
  *         schema: { type: integer, default: 20 }
  *     responses:
- *       200: { description: Notifications fetched }
+ *       200: { description: Notifications fetched successfully }
  */
 router.get("/me", notificationController.getMyNotifications);
 
@@ -28,7 +36,8 @@ router.get("/me", notificationController.getMyNotifications);
  * @swagger
  * /notifications/unread-count:
  *   get:
- *     summary: Get my unread notification count (for a badge icon)
+ *     summary: Get unread notification count
+ *     description: Returns the total number of unread notifications for displaying on the bell icon badge.
  *     tags: [Notifications]
  *     responses:
  *       200: { description: Unread count fetched }
@@ -57,7 +66,7 @@ router.patch("/:notificationId/read", notificationController.markRead);
  * @swagger
  * /notifications/read-all:
  *   patch:
- *     summary: Mark all my notifications as read
+ *     summary: Mark all notifications as read
  *     tags: [Notifications]
  *     responses:
  *       200: { description: All notifications marked as read }

@@ -3,11 +3,13 @@ import {
   createAnnouncement,
   findActiveAnnouncementsForClinic,
   findAllPlatformAnnouncements,
+  findAllAnnouncementsForAdmin,
   findAnnouncementById,
   deactivateAnnouncement,
+  deleteAnnouncementById,
+  updateAnnouncementById,
 } from "./announcement.repository.js";
-import { findClinicByUserId } from "../clinic/clinic.repository.js";
-import { findDoctorById } from "../clinic/clinic.repository.js";
+import { findClinicByUserId, findDoctorById } from "../clinic/clinic.repository.js";
 import { emitGlobalAnnouncement, emitClinicAnnouncement } from "../../sockets/announcement.socket.js";
 
 export const publishPlatformAnnouncement = async (adminUserId, { type, title, message }) => {
@@ -68,4 +70,22 @@ export const deactivate = async (announcementId, requestingUser) => {
   }
 
   return deactivateAnnouncement(announcementId);
+};
+
+export const updatePlatformAnnouncement = async (id, data) => {
+  const announcement = await findAnnouncementById(id);
+  if (!announcement) throw new ApiError(404, "Announcement not found");
+
+  return await updateAnnouncementById(id, data);
+};
+
+export const listAllForAdmin = async () => {
+  return await findAllAnnouncementsForAdmin();
+};
+
+export const deleteAnnouncement = async (id) => {
+  const announcement = await findAnnouncementById(id);
+  if (!announcement) throw new ApiError(404, "Announcement not found");
+
+  return await deleteAnnouncementById(id);
 };

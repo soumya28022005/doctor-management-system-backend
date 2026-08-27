@@ -34,3 +34,18 @@ export const deactivate = asyncHandler(async (req, res) => {
   const announcement = await announcementService.deactivate(req.params.announcementId, req.user);
   res.status(200).json(new ApiResponse(true, "Announcement deactivated", { announcement }));
 });
+
+export const deleteAnnouncement = asyncHandler(async (req, res) => {
+  await announcementService.deleteAnnouncement(req.params.id);
+  res.status(200).json(new ApiResponse(true, "Announcement permanently deleted", null));
+});
+
+export const updatePlatformAnnouncement = asyncHandler(async (req, res) => {
+  const updatedData = await announcementService.updatePlatformAnnouncement(req.params.id, req.body);
+  res.status(200).json(new ApiResponse(true, "Announcement updated", { announcement: updatedData }));
+});
+
+export const listAllAdmin = asyncHandler(async (req, res) => {
+  const announcements = await announcementService.listAllForAdmin();
+  res.status(200).json(new ApiResponse(true, "Admin announcements fetched", { announcements }));
+});

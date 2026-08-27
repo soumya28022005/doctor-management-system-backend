@@ -11,7 +11,7 @@ export const findActiveAnnouncementsForClinic = ({ clinicId, page, limit }) => {
   return prisma.announcement.findMany({
     where: {
       isActive: true,
-      OR: [{ clinicId }, { clinicId: null }], // clinic-specific + platform-wide
+      OR: [{ clinicId }, { clinicId: null }],
     },
     include: { doctor: { include: { user: { select: { name: true } } } } },
     orderBy: { createdAt: "desc" },
@@ -37,6 +37,28 @@ export const findAnnouncementById = (id) => {
   return prisma.announcement.findUnique({ where: { id } });
 };
 
-export const deactivateAnnouncement = (id) => {
-  return prisma.announcement.update({ where: { id }, data: { isActive: false } });
+export const deactivateAnnouncement = async (id) => {
+  return prisma.announcement.update({
+    where: { id },
+    data: { isActive: false },
+  });
+};
+
+export const deleteAnnouncementById = async (id) => {
+  return prisma.announcement.delete({
+    where: { id },
+  });
+};
+
+export const updateAnnouncementById = async (id, data) => {
+  return prisma.announcement.update({
+    where: { id },
+    data,
+  });
+};
+
+export const findAllAnnouncementsForAdmin = async () => {
+  return prisma.announcement.findMany({
+    orderBy: { createdAt: "desc" },
+  });
 };
