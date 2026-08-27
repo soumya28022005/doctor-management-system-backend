@@ -6,15 +6,29 @@ import {
   listAnnouncementsQuerySchema,
 } from "./announcement.validation.js";
 
+// IMPORT THE SOCKET HELPERS HERE
+import { 
+  emitGlobalAnnouncement, 
+  emitClinicAnnouncement 
+} from "../../sockets/announcement.socket.js";
+
 export const publishPlatformAnnouncement = asyncHandler(async (req, res) => {
   const data = createAnnouncementSchema.parse(req.body);
   const announcement = await announcementService.publishPlatformAnnouncement(req.user.id, data);
+  
+  // TRIGGER SOCKET BROADCAST
+  emitGlobalAnnouncement(announcement);
+
   res.status(201).json(new ApiResponse(true, "Announcement published", { announcement }));
 });
 
 export const publishClinicAnnouncement = asyncHandler(async (req, res) => {
   const data = createAnnouncementSchema.parse(req.body);
   const announcement = await announcementService.publishClinicAnnouncement(req.user.id, data);
+  
+  // TRIGGER SOCKET BROADCAST
+  emitClinicAnnouncement(req.user.clinicId || req.params.clinicId, announcement);
+
   res.status(201).json(new ApiResponse(true, "Announcement published", { announcement }));
 });
 
