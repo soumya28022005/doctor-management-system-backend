@@ -30,7 +30,6 @@ const router = Router();
  */
 router.get(
   "/global",
-  authMiddleware,
   announcementController.listAllPlatform
 );
 

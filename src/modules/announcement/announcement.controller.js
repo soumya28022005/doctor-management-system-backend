@@ -12,15 +12,25 @@ import {
   emitClinicAnnouncement 
 } from "../../sockets/announcement.socket.js";
 
-export const publishPlatformAnnouncement = asyncHandler(async (req, res) => {
-  const data = createAnnouncementSchema.parse(req.body);
-  const announcement = await announcementService.publishPlatformAnnouncement(req.user.id, data);
-  
-  // TRIGGER SOCKET BROADCAST
-  emitGlobalAnnouncement(announcement);
+export const publishPlatformAnnouncement = asyncHandler(
+  async (req, res) => {
+    const data = createAnnouncementSchema.parse(req.body);
 
-  res.status(201).json(new ApiResponse(true, "Announcement published", { announcement }));
-});
+    const announcement =
+      await announcementService.publishPlatformAnnouncement(
+        req.user.id,
+        data
+      );
+
+    res.status(201).json(
+      new ApiResponse(
+        true,
+        "Announcement published",
+        { announcement }
+      )
+    );
+  }
+);
 
 export const publishClinicAnnouncement = asyncHandler(async (req, res) => {
   const data = createAnnouncementSchema.parse(req.body);

@@ -12,7 +12,10 @@ import {
 import { findClinicByUserId, findDoctorById } from "../clinic/clinic.repository.js";
 import { emitGlobalAnnouncement, emitClinicAnnouncement } from "../../sockets/announcement.socket.js";
 
-export const publishPlatformAnnouncement = async (adminUserId, { type, title, message }) => {
+export const publishPlatformAnnouncement = async (
+  adminUserId,
+  { type, title, message }
+) => {
   const announcement = await createAnnouncement({
     type,
     title,
@@ -23,6 +26,7 @@ export const publishPlatformAnnouncement = async (adminUserId, { type, title, me
   });
 
   emitGlobalAnnouncement(announcement);
+
   return announcement;
 };
 
