@@ -10,7 +10,7 @@ const router = Router();
  * @swagger
  * /users/me/photo:
  *   post:
- *     summary: (Receptionist/Admin/Super Admin) Upload own profile photo
+ *     summary: (Universal) Upload profile photo for any role (except Patient)
  *     tags: [User]
  *     requestBody:
  *       required: true
@@ -28,7 +28,8 @@ const router = Router();
 router.post(
   "/me/photo",
   authMiddleware,
-  roleMiddleware("RECEPTIONIST", "ADMIN", "SUPER_ADMIN"),
+  // Patient ছাড়া বাকি সব রোল এখানে অ্যাড করা হলো
+  roleMiddleware("RECEPTIONIST", "CLINIC", "ADMIN", "SUPER_ADMIN", "DOCTOR"),
   upload.single("photo"),
   userController.uploadMyPhoto
 );

@@ -195,7 +195,7 @@ router.post(
  * @swagger
  * /doctors/requests/sent:
  *   get:
- *     summary: (Clinic) List all connection requests this clinic has sent to doctors
+ *     summary: (Clinic & Doctor) List all connection requests sent
  *     tags: [Doctor]
  *     responses:
  *       200: { description: Sent requests fetched }
@@ -203,7 +203,8 @@ router.post(
 router.get(
   "/requests/sent",
   authMiddleware,
-  roleMiddleware("CLINIC"),
+  // 🔴 FIX: CLINIC এবং DOCTOR উভয়কেই পারমিশন দেওয়া হলো
+  roleMiddleware("CLINIC", "DOCTOR"),
   doctorController.getMySentRequests
 );
 
@@ -211,7 +212,7 @@ router.get(
  * @swagger
  * /doctors/requests/received:
  *   get:
- *     summary: (Doctor) List all connection requests received from clinics
+ *     summary: (Clinic & Doctor) List all connection requests received
  *     tags: [Doctor]
  *     responses:
  *       200: { description: Received requests fetched }
@@ -219,7 +220,8 @@ router.get(
 router.get(
   "/requests/received",
   authMiddleware,
-  roleMiddleware("DOCTOR"),
+  // 🔴 FIX: CLINIC এবং DOCTOR উভয়কেই পারমিশন দেওয়া হলো
+  roleMiddleware("CLINIC", "DOCTOR"),
   doctorController.getMyReceivedRequests
 );
 

@@ -2,18 +2,19 @@ import ApiError from "../../utils/apiError.js";
 import { uploadBufferToCloudinary, deleteFromCloudinary } from "../../utils/cloudinaryUpload.js";
 import { findUserAvatarById, updateUserAvatar } from "./user.repository.js";
 
-// Self-service profile photo for roles that don't have their own dedicated
-// photo field (Receptionist, Admin, Super Admin). Doctor and Clinic already
-// manage their photo through their own modules (profilePhoto / logo).
+// Universal profile photo upload. 
+// Updates the "avatar" field in the User table for all supported roles.
 export const uploadMyPhoto = async (userId, fileBuffer) => {
   const user = await findUserAvatarById(userId);
   if (!user) throw new ApiError(404, "User not found");
 
   const oldAvatar = user.avatar;
 
+  // Cloudinary-তে jeet/users ফোল্ডারে সেভ হবে
   const result = await uploadBufferToCloudinary(fileBuffer, "jeet/users");
   const updated = await updateUserAvatar(userId, result.secure_url);
 
+  // যদি ইউজারের আগের কোনো ছবি থাকে, তবে সেটি Cloudinary থেকে ডিলিট করে দেওয়া হবে
   if (oldAvatar) await deleteFromCloudinary(oldAvatar);
 
   return updated;

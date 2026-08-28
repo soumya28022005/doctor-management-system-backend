@@ -11,8 +11,6 @@ import {
   createAssociationRequest,
   findAssociationById,
   updateAssociationStatus,
-  findRequestsForDoctor,
-  findRequestsForClinic,
   createDoctorLeave,
   removeDoctorLeave,
   findLeaveForDate,
@@ -21,19 +19,17 @@ import {
   getFeaturedDoctors,
   getAvailableDoctors,
   getDoctorByIdWithClinic,
-  updateDoctorDetails
-} from "./doctor.repository.js";
-import { findConflict } from "./schedule.helper.js";
-import { uploadBufferToCloudinary, deleteFromCloudinary } from "../../utils/cloudinaryUpload.js";
-import { updateDoctorProfilePhoto } from "./doctor.repository.js";
-import { emitDoctorDelay } from "../../sockets/queue.socket.js";
-import { findReceptionistAssignment } from "../queue/queue.repository.js";
-import {
+  updateDoctorDetails,
   updateDoctorAvgConsultation,
   findApprovedAssociationByDoctorAndClinic,
   updateAssociationAvgConsultation,
 } from "./doctor.repository.js";
+import { findConflict } from "./schedule.helper.js";
+import { emitDoctorDelay } from "../../sockets/queue.socket.js";
+import { findReceptionistAssignment } from "../queue/queue.repository.js";
 import { emitAppointmentNotification } from "../../sockets/notification.socket.js";
+import { uploadBufferToCloudinary, deleteFromCloudinary } from "../../utils/cloudinaryUpload.js";
+import { updateDoctorProfilePhoto } from "./doctor.repository.js";
 
 export const searchByName = async (name) => {
   return searchDoctorsByName(name);
@@ -91,20 +87,62 @@ export const respondToClinicRequest = async (doctorUserId, associationId, action
   return approveAssociationSafely(associationId, association.doctorId);
 };
 
-export const getMyReceivedRequests = async (doctorUserId) => {
-  const doctor = await findDoctorByUserId(doctorUserId);
-  if (!doctor) throw new ApiError(404, "Doctor profile not found");
-  return findRequestsForDoctor(doctor.id);
+
+// ==============================================
+// REQUEST FETCHING LOGIC (For Both Doctor & Clinic)
+// ==============================================
+
+export const getMyReceivedRequests = async (userId) => {
+  // ১. যদি ইউজার ডক্টর হয়
+  const doctor = await findDoctorByUserId(userId);
+  if (doctor) {
+    return prisma.doctorClinicAssociation.findMany({
+      where: { doctorId: doctor.id, requestedBy: "CLINIC" },
+      include: { clinic: { select: { clinicName: true, city: true, logo: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  // ২. যদি ইউজার ক্লিনিক হয়
+  const clinic = await findClinicByUserId(userId);
+  if (clinic) {
+    return prisma.doctorClinicAssociation.findMany({
+      where: { clinicId: clinic.id, requestedBy: "DOCTOR" },
+      include: { doctor: { include: { user: { select: { name: true, avatar: true } } } } },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  throw new ApiError(404, "Profile not found");
 };
 
-export const getMySentRequests = async (clinicUserId) => {
-  const clinic = await findClinicByUserId(clinicUserId);
-  if (!clinic) throw new ApiError(404, "Clinic profile not found");
-  return findRequestsForClinic(clinic.id);
+export const getMySentRequests = async (userId) => {
+  // ১. যদি ইউজার ডক্টর হয়
+  const doctor = await findDoctorByUserId(userId);
+  if (doctor) {
+    return prisma.doctorClinicAssociation.findMany({
+      where: { doctorId: doctor.id, requestedBy: "DOCTOR" },
+      include: { clinic: { select: { clinicName: true, city: true, logo: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  // ২. যদি ইউজার ক্লিনিক হয়
+  const clinic = await findClinicByUserId(userId);
+  if (clinic) {
+    return prisma.doctorClinicAssociation.findMany({
+      where: { clinicId: clinic.id, requestedBy: "CLINIC" },
+      include: { doctor: { include: { user: { select: { name: true, avatar: true } } } } },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
+  throw new ApiError(404, "Profile not found");
 };
 
+// ==============================================
 
-// Doctor sends a request to a clinic (mirror of sendRequestToDoctor)
+// Doctor sends a request to a clinic
 export const sendRequestToClinic = async (doctorUserId, payload) => {
   const doctor = await findDoctorByUserId(doctorUserId);
   if (!doctor) throw new ApiError(404, "Doctor profile not found");
@@ -136,7 +174,7 @@ export const sendRequestToClinic = async (doctorUserId, payload) => {
   };
 };
 
-// Clinic responds to a doctor's request (mirror of respondToClinicRequest)
+// Clinic responds to a doctor's request
 export const respondToDoctorRequest = async (clinicUserId, associationId, action) => {
   const association = await findAssociationById(associationId);
   if (!association) throw new ApiError(404, "Request not found");
@@ -157,11 +195,6 @@ export const respondToDoctorRequest = async (clinicUserId, associationId, action
   return approveAssociationSafely(associationId, association.doctorId);
 };
 
-// Approves an association only if it's still PENDING and still conflict-free,
-// checked and written inside a single Serializable transaction. Postgres will
-// abort one side with a serialization failure (surfaced by Prisma as P2034)
-// if two concurrent approvals for the same doctor would otherwise both pass
-// the conflict check and create overlapping approved schedules.
 const approveAssociationSafely = async (associationId, doctorId) => {
   try {
     return await prisma.$transaction(
@@ -199,8 +232,6 @@ const approveAssociationSafely = async (associationId, doctorId) => {
   }
 };
 
-// Either the doctor or the clinic in this association can cancel an APPROVED (or PENDING) one.
-// Cancelling an APPROVED association frees up that time slot for a conflicting PENDING request.
 export const cancelAssociation = async (userId, userRole, associationId) => {
   const association = await findAssociationById(associationId);
   if (!association) throw new ApiError(404, "Association not found");
@@ -224,25 +255,6 @@ export const cancelAssociation = async (userId, userRole, associationId) => {
   return updateAssociationStatus(associationId, "CANCELLED");
 };
 
-// merge updateDoctorProfilePhoto into your existing repository import line
-
-export const uploadProfilePhoto = async (doctorUserId, fileBuffer) => {
-  const doctor = await findDoctorByUserId(doctorUserId);
-  if (!doctor) throw new ApiError(404, "Doctor profile not found");
-
-  const oldPhoto = doctor.profilePhoto;
-
-  const result = await uploadBufferToCloudinary(fileBuffer, "jeet/doctors");
-  const updated = await updateDoctorProfilePhoto(doctor.id, result.secure_url);
-
-  if (oldPhoto) await deleteFromCloudinary(oldPhoto);
-
-  return updated;
-};
-
-// Settable by: the Doctor themselves, the Clinic they work at, an assigned Receptionist,
-// or Admin/Super Admin. Targets either the doctor's primary clinic (Doctor.avgConsultationMinutes)
-// or a secondary approved association (DoctorClinicAssociation.avgConsultationMinutes).
 export const updateConsultationTime = async (user, doctorId, clinicId, minutes) => {
   const doctor = await findDoctorByIdWithUser(doctorId);
   if (!doctor) throw new ApiError(404, "Doctor not found");
@@ -291,9 +303,6 @@ const notifyApproaching = async (doctorId, clinicId, date, currentToken) => {
   }
 };
 
-// Access check reused for leave management and delay notifications —
-// same rule as consultation-time updates: Doctor (self), Clinic (own doctor),
-// assigned Receptionist, or Admin/Super Admin.
 const assertDoctorClinicManageAccess = async (user, doctorId, clinicId) => {
   const doctor = await findDoctorByIdWithUser(doctorId);
   if (!doctor) throw new ApiError(404, "Doctor not found");
@@ -347,9 +356,6 @@ export const listUpcomingDoctorLeaves = async (doctorId, clinicId) => {
   return findUpcomingLeaves(doctorId, clinicId);
 };
 
-// Doctor Delay — a lighter signal than leave: broadcasts to today's queue watchers
-// and notifies every patient with a WAITING/CHECKED_IN appointment today, without
-// blocking new bookings.
 export const notifyDoctorDelay = async (user, doctorId, clinicId, delayMinutes) => {
   await assertDoctorClinicManageAccess(user, doctorId, clinicId);
 
@@ -435,4 +441,27 @@ export const updateAvailabilityStatus = async (doctorId, isAvailable, userId, us
   };
 
   return await updateDoctorDetails(doctorId, dataToUpdate);
+};
+
+export const uploadProfilePhoto = async (doctorUserId, fileBuffer) => {
+  const doctor = await findDoctorByUserId(doctorUserId);
+  if (!doctor) throw new ApiError(404, "Doctor profile not found");
+
+  const oldPhoto = doctor.profilePhoto;
+
+  // Cloudinary-তে সেভ করা
+  const result = await uploadBufferToCloudinary(fileBuffer, "jeet/doctors");
+  
+  // ১. Doctor টেবিলের profilePhoto আপডেট (যাতে Featured/All Doctors কার্ডে শো করে)
+  const updatedDoctor = await updateDoctorProfilePhoto(doctor.id, result.secure_url);
+  
+  // ২. User টেবিলের avatar আপডেট (যাতে Header এবং Profile পেজে শো করে)
+  await prisma.user.update({
+    where: { id: doctorUserId },
+    data: { avatar: result.secure_url }
+  });
+
+  if (oldPhoto) await deleteFromCloudinary(oldPhoto);
+
+  return updatedDoctor;
 };
