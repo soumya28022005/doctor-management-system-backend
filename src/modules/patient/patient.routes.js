@@ -2,6 +2,7 @@ import { Router } from "express";
 import * as patientController from "./patient.controller.js";
 import authMiddleware from "../../middlewares/auth.middleware.js";
 import roleMiddleware from "../../middlewares/role.middleware.js";
+import {searchByPhone} from "./patient.controller.js";
 
 const router = Router();
 
@@ -89,5 +90,8 @@ router.get("/me", authMiddleware, roleMiddleware("PATIENT"), patientController.g
  *       200: { description: Profile updated successfully }
  */
 router.patch("/me", authMiddleware, roleMiddleware("PATIENT"), patientController.updateMyProfile);
+
+// src/modules/patient/patient.routes.js
+router.get("/search-by-phone", patientController.searchByPhone);
 
 export default router;

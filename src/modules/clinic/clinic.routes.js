@@ -46,7 +46,15 @@ router.get("/", clinicController.getAllClinics);
  *     summary: Get single clinic by ID
  *     tags: [Clinic (Public)]
  */
-router.get("/:id", clinicController.getClinicById);
+router.get("/:id", (req, res, next) => {
+  // If the ID is not exactly 36 characters (a standard UUID length), 
+  // skip this route so it doesn't block /profile, /doctors, etc.
+  if (req.params.id.length !== 36) {
+    return next();
+  }
+  // Otherwise, fetch the clinic by ID
+  clinicController.getClinicById(req, res, next);
+});
 
 // =========================================================================
 // 2. ADMIN ROUTES (Only Admin/Super Admin)

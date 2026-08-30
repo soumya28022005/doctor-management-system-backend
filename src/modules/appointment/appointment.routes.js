@@ -152,4 +152,6 @@ router.patch("/:appointmentId/cancel", authMiddleware, appointmentController.can
  */
 router.patch("/:appointmentId/reschedule", authMiddleware, appointmentController.rescheduleAppointment);
 
+router.post("/walk-in", authMiddleware, roleMiddleware("CLINIC", "RECEPTIONIST"), appointmentController.createWalkInAppointment);
+
 export default router;

@@ -203,3 +203,16 @@ export const getDoctorLeaveForDate = (doctorId, clinicId, date) => {
   });
 };
 
+export const findPatientByPhone = async (phone) => {
+  // 1. Check Guest Patients first (stored directly in Patient table)
+  let patient = await prisma.patient.findFirst({ where: { phone } });
+  if (patient) return patient;
+  
+  // 2. Check App-registered Patients (phone is in User table)
+  const user = await prisma.user.findFirst({ 
+    where: { phone, role: "PATIENT" },
+    include: { patient: true }
+  });
+  
+  return user?.patient || null;
+};

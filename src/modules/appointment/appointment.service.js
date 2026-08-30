@@ -1,6 +1,6 @@
 import ApiError from "../../utils/apiError.js";
 import prisma from "../../config/db.config.js";
-import { findClinicByUserId } from "../clinic/clinic.repository.js";
+import { findClinicByUserId, findReceptionistByUserId } from "../clinic/clinic.repository.js";
 import { findReceptionistAssignment } from "../queue/queue.repository.js";
 import { notifyUser } from "../notification/notification.service.js";
 import {
@@ -19,7 +19,9 @@ import {
   getConsultationMinutesForDoctorClinic,
   findAppointmentByIdFull,
   cancelAppointmentRecord,
+  findPatientByPhone,
 } from "./appointment.repository.js";
+
 import { emitQueueUpdate } from "../../sockets/queue.socket.js";
 
 const DAY_NAMES = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
@@ -354,4 +356,46 @@ const assertClinicOperational = async (clinicId, date, { isOnlineBooking }, doct
       throw new ApiError(400, `Doctor is on leave on this date${leave.reason ? `: ${leave.reason}` : ""}`);
     }
   }
+};
+
+export const processWalkInAppointment = async (user, { doctorId, phone, name, age }) => {
+  let clinicId;
+
+  // 1. Get Clinic ID securely via repository
+  if (user.role === "CLINIC") {
+    const clinic = await findClinicByUserId(user.id);
+    if (!clinic) throw new ApiError(404, "Clinic not found");
+    clinicId = clinic.id;
+  } else if (user.role === "RECEPTIONIST") {
+    const receptionist = await findReceptionistByUserId(user.id);
+    if (!receptionist) throw new ApiError(404, "Receptionist not found");
+    clinicId = receptionist.clinicId;
+  } else {
+    throw new ApiError(403, "Unauthorized to book walk-ins");
+  }
+
+  // 2. Validate doctor belongs to clinic (Using your existing repo function)
+  await assertBookableClinic(doctorId, clinicId);
+
+  // 3. Find existing patient or create guest (Using Repository)
+  let patient = await findPatientByPhone(phone);
+  
+  if (!patient) {
+    patient = await createWalkInPatient({ name, age: Number(age), phone });
+  }
+
+  // 4. Create appointment (date normalized to today)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // 5. Use your existing core logic to generate Token and Queue
+  const appointment = await bookAppointmentCore({
+    doctorId,
+    clinicId,
+    patientId: patient.id,
+    date: today,
+    bookingSource: "WALK_IN"
+  });
+
+  return { appointment, token: appointment.token };
 };
