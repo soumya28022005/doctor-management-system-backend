@@ -186,3 +186,15 @@ export const toggleDoctorAvailability = asyncHandler(async (req, res) => {
     throw new ApiError(statusCode, error.message);
   }
 });
+
+export const getDoctorById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const location = req.query.location; // Global location query
+  
+  // Call the service we created earlier
+  const doctor = await doctorService.getDoctorProfileWithClinics(id, location);
+  
+  res.status(200).json(
+    new ApiResponse(true, "Doctor profile fetched successfully", doctor)
+  );
+});

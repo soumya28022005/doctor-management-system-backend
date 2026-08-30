@@ -494,4 +494,6 @@ router.post(
   doctorController.notifyDelay
 );
 
+router.get("/:id", doctorController.getDoctorById);
+
 export default router;

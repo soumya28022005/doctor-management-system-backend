@@ -38,6 +38,16 @@ router.get("/featured", clinicController.getFeaturedClinics);
  */
 router.get("/", clinicController.getAllClinics);
 
+
+/**
+ * @swagger
+ * /clinic/{id}:
+ *   get:
+ *     summary: Get single clinic by ID
+ *     tags: [Clinic (Public)]
+ */
+router.get("/:id", clinicController.getClinicById);
+
 // =========================================================================
 // 2. ADMIN ROUTES (Only Admin/Super Admin)
 // =========================================================================

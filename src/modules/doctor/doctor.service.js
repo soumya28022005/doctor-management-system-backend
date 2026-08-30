@@ -465,3 +465,52 @@ export const uploadProfilePhoto = async (doctorUserId, fileBuffer) => {
 
   return updatedDoctor;
 };
+
+export const getDoctorProfileWithClinics = async (doctorId, locationCity = null) => {
+  const doctor = await prisma.doctor.findUnique({
+    where: { id: doctorId },
+    include: {
+      user: { select: { name: true, avatar: true, phone: true } },
+      clinic: true, // Primary Clinic
+      clinicAssociations: {
+        where: { 
+          status: "APPROVED",
+          ...(locationCity ? { clinic: { city: locationCity } } : {}) // Global Location Filter
+        },
+        include: { clinic: true }
+      }
+    }
+  });
+
+  if (!doctor) throw new ApiError(404, "Doctor not found");
+
+  // Format and merge all clinics for frontend consistency
+  const primaryClinic = {
+    ...doctor.clinic,
+    isPrimary: true,
+    associationDetails: {
+      fee: doctor.fee,
+      startTime: doctor.startTime,
+      queueMode: doctor.queueMode
+    }
+  };
+
+  const associatedClinics = doctor.clinicAssociations.map(assoc => ({
+    ...assoc.clinic,
+    isPrimary: false,
+    associationDetails: {
+      fee: assoc.fee,
+      dayOfWeek: assoc.dayOfWeek,
+      startTime: assoc.startTime,
+      endTime: assoc.endTime,
+      queueMode: assoc.queueMode
+    }
+  }));
+
+  // Filtering out primary clinic if location filter is active but primary clinic city doesn't match
+  const allClinics = locationCity && doctor.clinic?.city !== locationCity 
+    ? associatedClinics 
+    : [primaryClinic, ...associatedClinics];
+
+  return { ...doctor, allClinics };
+};
