@@ -149,18 +149,28 @@ export const createClinic = async ({ name, email, password, phone, clinicName, a
   if (existing) throw new ApiError(409, "A user with this email already exists");
 
   const hashedPassword = await hashPassword(password);
-  const { user, clinic } = await createClinicUser({
-    userData: { name, email, phone, password: hashedPassword },
-    clinicName,
-  });
 
-  let finalClinic = clinic;
-  if (address || city || state || pincode) {
-    finalClinic = await updateClinicProfile(clinic.id, { clinicName, address, city, state, pincode });
+  try {
+    const { user, clinic } = await createClinicUser({
+      userData: { name, email, phone, password: hashedPassword },
+      clinicName,
+    });
+
+    let finalClinic = clinic;
+    if (address || city || state || pincode) {
+      finalClinic = await updateClinicProfile(clinic.id, { clinicName, address, city, state, pincode });
+    }
+
+    const { password: _pw, refreshToken, ...safeUser } = user;
+    return { user: safeUser, clinic: finalClinic };
+    
+  } catch (error) {
+    // Catch unique constraint failed error for Phone
+    if (error.code === 'P2002' && error.meta?.target?.includes('phone')) {
+      throw new ApiError(409, "This phone number is already registered.");
+    }
+    throw error;
   }
-
-  const { password: _pw, refreshToken, ...safeUser } = user;
-  return { user: safeUser, clinic: finalClinic };
 };
 
 export const createDiagnosticCenter = async ({ name, email, password, phone, centerName, address, city, state, pincode }) => {
@@ -168,19 +178,26 @@ export const createDiagnosticCenter = async ({ name, email, password, phone, cen
   if (existing) throw new ApiError(409, "A user with this email already exists");
 
   const hashedPassword = await hashPassword(password);
-  const { user, diagnosticCenter } = await createDiagnosticCenterUser({
-    userData: { name, email, phone, password: hashedPassword },
-    centerName,
-  });
 
-  let finalCenter = diagnosticCenter;
-  if (address || city || state || pincode) {
-    // Moved Prisma DB call from service layer to repository layer
-    finalCenter = await updateDiagnosticCenterProfile(diagnosticCenter.id, { address, city, state, pincode });
+  try {
+    const { user, diagnosticCenter } = await createDiagnosticCenterUser({
+      userData: { name, email, phone, password: hashedPassword },
+      centerName,
+    });
+
+    let finalCenter = diagnosticCenter;
+    if (address || city || state || pincode) {
+      finalCenter = await updateDiagnosticCenterProfile(diagnosticCenter.id, { address, city, state, pincode });
+    }
+
+    const { password: _pw, refreshToken, ...safeUser } = user;
+    return { user: safeUser, diagnosticCenter: finalCenter };
+  } catch (error) {
+    if (error.code === 'P2002' && error.meta?.target?.includes('phone')) {
+      throw new ApiError(400, "This phone number is already registered.");
+    }
+    throw error;
   }
-
-  const { password: _pw, refreshToken, ...safeUser } = user;
-  return { user: safeUser, diagnosticCenter: finalCenter };
 };
 
 // ----------------------------------------------------------------------
