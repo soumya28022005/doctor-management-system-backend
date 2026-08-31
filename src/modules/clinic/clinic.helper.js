@@ -22,17 +22,34 @@ const formatTime12Hour = (time24) => {
 export const evaluateClinicAvailability = (clinic) => {
   const now = new Date();
   
-  // Local date extract kora
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const todayDateString = `${year}-${month}-${day}`;
-  
-  const daysOfWeek = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
-  const currentDay = daysOfWeek[now.getDay()];
+  // 1. Explicitly Force Indian Timezone (Asia/Kolkata)
+  const timeZone = 'Asia/Kolkata';
 
-  // 1. Holiday Check
+  // Get YYYY-MM-DD in IST
+  const todayDateString = new Intl.DateTimeFormat('en-CA', { 
+    timeZone, 
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit' 
+  }).format(now);
+
+  // Get Current Day (MONDAY, TUESDAY) in IST
+  const currentDay = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    weekday: 'long'
+  }).format(now).toUpperCase();
+
+  // Get Current Time (HH:mm) in IST
+  const currentTime = new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(now);
+
+  // 2. Holiday Check
   const isHoliday = clinic.holidays?.some((holiday) => {
+    // Force holiday date string to match our IST date string format
     const holidayDate = new Date(holiday.date).toISOString().split('T')[0];
     return holidayDate === todayDateString;
   });
@@ -41,12 +58,12 @@ export const evaluateClinicAvailability = (clinic) => {
     return { isAvailable: false, status: 'Holiday • Closed' };
   }
 
-  // 2. Manual On/Off Toggle Check
+  // 3. Manual On/Off Toggle Check
   if (clinic.isAvailableToday === false) {
     return { isAvailable: false, status: 'Closed Currently' };
   }
 
-  // 3. Day Schedule Check
+  // 4. Day Schedule Check
   const todaySchedule = clinic.workingHours?.find(
     (sch) => sch.dayOfWeek.toUpperCase() === currentDay
   );
@@ -55,11 +72,7 @@ export const evaluateClinicAvailability = (clinic) => {
     return { isAvailable: false, status: 'Closed Today' };
   }
 
-  // 4. Strict Time Check (Current Time vs Open/Close Time)
-  const currentHour = String(now.getHours()).padStart(2, '0');
-  const currentMinute = String(now.getMinutes()).padStart(2, '0');
-  const currentTime = `${currentHour}:${currentMinute}`; // E.g., "14:30"
-
+  // 5. Strict Time Check (IST Time vs Open/Close Time)
   const openTime = todaySchedule.openTime;
   const closeTime = todaySchedule.closeTime;
 
