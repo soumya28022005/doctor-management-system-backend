@@ -1,1 +1,2 @@
 export const DEFAULT_PASSWORD_MIN_LENGTH = 6;
+export const TEMP_PASSWORD_LENGTH = 8;

@@ -5,7 +5,7 @@ import * as clinicService from "./clinic.service.js";
 import {
   updateClinicProfileSchema, createDoctorSchema, createReceptionistSchema, assignDoctorsSchema,
   changeStaffPasswordSchema, updateDoctorSchema, searchClinicsByNameSchema, setWorkingHoursSchema,
-  addHolidaySchema, toggleOnlineConsultationSchema,
+  addHolidaySchema, toggleOnlineConsultationSchema, toggleAvailabilitySchema
 } from "./clinic.validation.js";
 import { respondToRequestSchema } from "../doctor/doctor.validation.js";
 
@@ -106,7 +106,15 @@ export const getMyReceivedRequests = asyncHandler(async (req, res) => {
 // PUBLIC CONTROLLERS
 // ==========================================
 export const getAllClinics = asyncHandler(async (req, res) => {
-  const clinics = await clinicService.fetchAllClinics();
+  const { available } = req.query; // Grabs ?available=true from URL
+  
+  let clinics = await clinicService.fetchAllClinics();
+
+  // If frontend hits /clinic?available=true, filter out the closed ones
+  if (available === 'true') {
+    clinics = clinics.filter(clinic => clinic.availability?.isAvailable);
+  }
+
   res.status(200).json(new ApiResponse(true, "All clinics fetched successfully", clinics));
 });
 
@@ -124,4 +132,10 @@ export const toggleClinicFeaturedStatus = asyncHandler(async (req, res) => {
   const { isFeatured, featuredOrder } = req.body;
   const updatedClinic = await clinicService.toggleFeaturedStatus(req.params.clinicId, isFeatured, featuredOrder);
   res.status(200).json(new ApiResponse(true, "Clinic featured status updated", updatedClinic));
+});
+
+export const toggleAvailability = asyncHandler(async (req, res) => {
+  const { isAvailableToday } = toggleAvailabilitySchema.parse(req.body);
+  const clinic = await clinicService.toggleAvailability(req.user.id, isAvailableToday);
+  res.status(200).json(new ApiResponse(true, `Clinic availability marked as ${isAvailableToday ? 'Open' : 'Closed'}`, { clinic }));
 });

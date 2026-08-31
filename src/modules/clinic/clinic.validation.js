@@ -56,29 +56,38 @@ export const searchClinicsByNameSchema = z.object({
   name: z.string().min(1, "Name is required"),
 });
 
-// holidays 
-
 export const setWorkingHoursSchema = z.object({
   workingHours: z
     .array(
       z.object({
-        dayOfWeek: z.enum([
-          "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY",
-        ]),
+        // Transform kore always UPPERCASE kore nebe, jate "Monday" pathaleo error na ase
+        dayOfWeek: z.string().transform((v) => v.toUpperCase()).pipe(
+          z.enum([
+            "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY",
+          ])
+        ),
         isClosed: z.boolean().default(false),
+        // Empty string ("") ba null asle jate bad request na hoy, tar jonno refine kora holo
         openTime: z
           .string()
-          .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "openTime must be HH:mm")
-          .optional(),
+          .nullable()
+          .optional()
+          .refine(
+            (val) => !val || /^([01]\d|2[0-3]):([0-5]\d)$/.test(val),
+            "openTime must be HH:mm"
+          ),
         closeTime: z
           .string()
-          .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "closeTime must be HH:mm")
-          .optional(),
+          .nullable()
+          .optional()
+          .refine(
+            (val) => !val || /^([01]\d|2[0-3]):([0-5]\d)$/.test(val),
+            "closeTime must be HH:mm"
+          ),
       })
     )
     .min(1, "At least one day must be provided"),
 });
-
 export const addHolidaySchema = z.object({
   date: z.string(), // YYYY-MM-DD
   reason: z.string().optional(),
@@ -86,4 +95,8 @@ export const addHolidaySchema = z.object({
 
 export const toggleOnlineConsultationSchema = z.object({
   enabled: z.boolean(),
+});
+
+export const toggleAvailabilitySchema = z.object({
+  isAvailableToday: z.boolean(),
 });

@@ -5,6 +5,7 @@ import { findUserByEmail, updateUserPassword } from "../auth/auth.repository.js"
 import { uploadBufferToCloudinary, deleteFromCloudinary } from "../../utils/cloudinaryUpload.js";
 import { respondToDoctorRequest as respondToDoctorRequestCore } from "../doctor/doctor.service.js";
 import { findApprovedAssociationsForDoctor } from "../doctor/doctor.repository.js";
+import { evaluateClinicAvailability } from "./clinic.helper.js";
 
 export const getMyClinicProfile = async (userId) => {
   const clinic = await clinicRepo.findClinicByUserId(userId);
@@ -160,6 +161,12 @@ export const getMyReceivedRequests = async (clinicUserId) => {
   return clinicRepo.findReceivedRequestsForClinic(clinic.id);
 };
 
+export const toggleAvailability = async (clinicUserId, isAvailableToday) => {
+  const clinic = await clinicRepo.findClinicByUserId(clinicUserId);
+  if (!clinic) throw new ApiError(404, "Clinic profile not found");
+  return clinicRepo.updateClinicAvailability(clinic.id, isAvailableToday);
+};
+
 // ==========================================
 // PUBLIC SERVICES
 // ==========================================
@@ -168,6 +175,7 @@ export const fetchAllClinics = async () => {
   const clinics = await clinicRepo.findAllApprovedClinics();
   return clinics.map(clinic => ({
     ...clinic,
+    availability: evaluateClinicAvailability(clinic), // Attach calculated status
     doctorsCount: clinic._count.doctors + clinic._count.doctorAssociations,
     _count: undefined
   }));
@@ -177,6 +185,7 @@ export const fetchFeaturedClinics = async () => {
   const clinics = await clinicRepo.findFeaturedClinics();
   return clinics.map(clinic => ({
     ...clinic,
+    availability: evaluateClinicAvailability(clinic), // Attach calculated status
     doctorsCount: clinic._count.doctors + clinic._count.doctorAssociations,
     _count: undefined
   }));
@@ -206,6 +215,7 @@ export const fetchClinicProfileById = async (id) => {
 
   return {
     ...clinic,
+    availability: evaluateClinicAvailability(clinic), // Attach calculated status
     allDoctors: [...primaryDoctors, ...associatedDoctors]
   };
 };

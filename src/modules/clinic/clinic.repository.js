@@ -65,6 +65,14 @@ export const getHolidayForClinicDate = (clinicId, date) => prisma.clinicHoliday.
 export const findReceptionistByUserId = (userId) => prisma.receptionist.findUnique({ where: { userId }, include: { clinic: true } });
 export const findReceivedRequestsForClinic = (clinicId) => prisma.doctorClinicAssociation.findMany({ where: { clinicId, requestedBy: "DOCTOR" }, include: { doctor: { include: { user: { select: { name: true, email: true, phone: true } } } } }, orderBy: { createdAt: "desc" } });
 
+// Toggle real-time active status
+export const updateClinicAvailability = (clinicId, isAvailableToday) => {
+  return prisma.clinic.update({
+    where: { id: clinicId },
+    data: { isAvailableToday }
+  });
+};
+
 // ==========================================
 // PUBLIC APIs for Directory
 // ==========================================
@@ -74,7 +82,9 @@ export const findAllApprovedClinics = () => {
     where: { isApproved: true },
     include: {
       user: { select: { name: true, email: true, avatar: true } },
-      _count: { select: { doctors: true, doctorAssociations: { where: { status: 'APPROVED' } } } }
+      _count: { select: { doctors: true, doctorAssociations: { where: { status: 'APPROVED' } } } },
+      workingHours: true, // Needed for availability logic
+      holidays: true      // Needed for availability logic
     },
     orderBy: { createdAt: 'desc' }
   });
@@ -86,7 +96,9 @@ export const findFeaturedClinics = () => {
     orderBy: { featuredOrder: 'asc' },
     include: {
       user: { select: { name: true, email: true, avatar: true } },
-      _count: { select: { doctors: true, doctorAssociations: { where: { status: 'APPROVED' } } } }
+      _count: { select: { doctors: true, doctorAssociations: { where: { status: 'APPROVED' } } } },
+      workingHours: true, // Needed for availability logic
+      holidays: true      // Needed for availability logic
     }
   });
 };
@@ -96,6 +108,8 @@ export const getClinicProfileWithDoctorsRepo = (id) => {
     where: { id },
     include: {
       user: { select: { name: true, email: true, avatar: true } },
+      workingHours: true, // Needed for availability logic
+      holidays: true,     // Needed for availability logic
       doctors: {
         include: { user: { select: { name: true, avatar: true } } }
       },

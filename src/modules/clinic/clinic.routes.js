@@ -467,4 +467,24 @@ router.patch("/online-consultation", clinicController.toggleOnlineConsultation);
  */
 router.get("/requests/received", clinicController.getMyReceivedRequests);
 
+/**
+ * @swagger
+ * /clinic/availability:
+ *   patch:
+ *     summary: Toggle clinic real-time availability on or off
+ *     tags: [Clinic]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [availableNow]
+ *             properties:
+ *               availableNow: { type: boolean }
+ *     responses:
+ *       200: { description: Clinic availability updated }
+ */
+router.patch("/availability", clinicController.toggleAvailability);
+
 export default router;
