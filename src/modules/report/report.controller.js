@@ -1,6 +1,5 @@
 import asyncHandler from "../../utils/asyncHandler.js";
 import ApiResponse from "../../utils/apiResponse.js";
-import ApiError from "../../utils/apiError.js";
 import prisma from "../../config/db.config.js";
 import * as reportService from "./report.service.js";
 import {
@@ -32,31 +31,36 @@ const sendReport = (res, report, format, filenameSuffix) => {
 
 export const getDailyReport = asyncHandler(async (req, res) => {
   const { date } = dailyReportSchema.parse(req.query);
-  const report = await reportService.getDailyReport(req.user.id, date);
+  const doctorId = req.query.doctorId; // Extract doctorId if present
+  const report = await reportService.getDailyReport(req.user.id, req.user.role, date, doctorId);
   return sendReport(res, report, req.query.format, `daily-report_${date}`);
 });
 
 export const getMonthlyReport = asyncHandler(async (req, res) => {
   const { month } = monthlyReportSchema.parse(req.query);
-  const report = await reportService.getMonthlyReport(req.user.id, month);
+  const doctorId = req.query.doctorId;
+  const report = await reportService.getMonthlyReport(req.user.id, req.user.role, month, doctorId);
   return sendReport(res, report, req.query.format, `monthly-report_${month}`);
 });
 
 export const getWeeklyReport = asyncHandler(async (req, res) => {
   const { date } = weeklyReportSchema.parse(req.query);
-  const report = await reportService.getWeeklyReport(req.user.id, date);
+  const doctorId = req.query.doctorId;
+  const report = await reportService.getWeeklyReport(req.user.id, req.user.role, date, doctorId);
   return sendReport(res, report, req.query.format, `weekly-report_${report.weekStart}_to_${report.weekEnd}`);
 });
 
 export const getYearlyReport = asyncHandler(async (req, res) => {
   const { year } = yearlyReportSchema.parse(req.query);
-  const report = await reportService.getYearlyReport(req.user.id, year);
+  const doctorId = req.query.doctorId;
+  const report = await reportService.getYearlyReport(req.user.id, req.user.role, year, doctorId);
   return sendReport(res, report, req.query.format, `yearly-report_${year}`);
 });
 
 export const getCustomRangeReport = asyncHandler(async (req, res) => {
   const { startDate, endDate } = customRangeReportSchema.parse(req.query);
-  const report = await reportService.getCustomRangeReport(req.user.id, startDate, endDate);
+  const doctorId = req.query.doctorId;
+  const report = await reportService.getCustomRangeReport(req.user.id, req.user.role, startDate, endDate, doctorId);
   return sendReport(res, report, req.query.format, `report_${startDate}_to_${endDate}`);
 });
 

@@ -11,15 +11,34 @@ export const summarizeAppointments = (appointments) => {
     summary.byStatus[appt.status] = (summary.byStatus[appt.status] || 0) + 1;
     summary.bySource[appt.bookingSource] = (summary.bySource[appt.bookingSource] || 0) + 1;
 
-    const doctorName = appt.doctor.user.name;
+    const doctorName = appt.doctor?.user?.name || "Unknown Doctor";
+    
     if (!summary.byDoctor[doctorName]) {
-      summary.byDoctor[doctorName] = { totalAppointments: 0, completed: 0, revenue: 0 };
+      summary.byDoctor[doctorName] = { 
+        totalAppointments: 0, 
+        completed: 0, 
+        revenue: 0,
+        online: 0,
+        walkin: 0,
+        patients: [] 
+      };
     }
+    
     summary.byDoctor[doctorName].totalAppointments += 1;
+    
+    const isOnline = appt.bookingSource === 'ONLINE';
+    if (isOnline) summary.byDoctor[doctorName].online += 1;
+    else summary.byDoctor[doctorName].walkin += 1;
+
+    summary.byDoctor[doctorName].patients.push({
+      name: appt.patient?.user?.name || appt.patient?.name || 'Unknown Patient',
+      type: isOnline ? 'Online' : 'Walk-in',
+      status: appt.status
+    });
 
     if (appt.status === "COMPLETED") {
       summary.byDoctor[doctorName].completed += 1;
-      const fee = appt.doctor.fee || 0;
+      const fee = appt.doctor?.fee || 0;
       summary.byDoctor[doctorName].revenue += fee;
       summary.estimatedRevenue += fee;
     }
