@@ -25,3 +25,37 @@ export const findConflict = (candidate, existingApprovedAssociations) => {
   }
   return null;
 };
+
+// === NEW: Schedule Overlap Checker ===
+
+// Checks if two recurrence patterns intersect
+const patternsIntersect = (typeA, patternA, typeB, patternB) => {
+  // If either is DAILY, they intersect on some day
+  if (typeA === "DAILY" || typeB === "DAILY") return true;
+
+  // If both are WEEKLY, check if they share any days
+  if (typeA === "WEEKLY" && typeB === "WEEKLY") {
+    const daysA = patternA.days || [];
+    const daysB = patternB.days || [];
+    return daysA.some((day) => daysB.includes(day));
+  }
+
+  // Fallback: assume they might intersect to be safe
+  return true; 
+};
+
+// Checks a candidate schedule against existing schedules for overlaps
+export const checkScheduleConflict = (candidate, existingSchedules) => {
+  for (const existing of existingSchedules) {
+    if (!existing.isActive) continue;
+
+    // Check time overlap
+    if (rangesOverlap(candidate.startTime, candidate.endTime, existing.startTime, existing.endTime)) {
+      // Check recurrence pattern overlap
+      if (patternsIntersect(candidate.recurrenceType, candidate.recurrencePattern, existing.recurrenceType, existing.recurrencePattern)) {
+        return existing;
+      }
+    }
+  }
+  return null;
+};

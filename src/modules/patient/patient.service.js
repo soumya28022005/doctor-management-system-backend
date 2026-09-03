@@ -1,4 +1,5 @@
 import ApiError from "../../utils/apiError.js";
+import { normalizePhone } from "../../utils/phoneNormalizer.js";
 import {
   findPatientByPhone,
   findPatientByUserId,
@@ -7,7 +8,9 @@ import {
 } from "./patient.repository.js";
 
 export const searchPatientByPhone = async (phone) => {
-  const patient = await findPatientByPhone(phone);
+  const normalizedPhone = normalizePhone(phone);
+  const patient = await findPatientByPhone(normalizedPhone);
+  
   if (!patient) return null;
 
   // Present a unified shape regardless of guest vs self-registered
@@ -24,9 +27,11 @@ export const searchPatientByPhone = async (phone) => {
 
 export const createGuest = async (payload) => {
   if (payload.phone) {
+    payload.phone = normalizePhone(payload.phone);
+    
     const existing = await findPatientByPhone(payload.phone);
     if (existing) {
-      throw new ApiError(409, "A patient with this phone number already exists");
+      throw new ApiError(409, "A patient with this phone number already exists in the system.");
     }
   }
 

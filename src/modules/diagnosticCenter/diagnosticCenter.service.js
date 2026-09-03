@@ -13,7 +13,15 @@ import {
   findStaffById,
   searchCentersByName,
   searchAllApprovedCenters,
+  getActiveGlobalTests,
+  getCenterTests,
+  findCenterTestById,
+  findCenterTestByCenterAndTest,
+  addTestToCenter,
+  updateCenterTest,
+  removeCenterTest,
 } from "./diagnosticCenter.repository.js";
+
 
 export const getMyProfile = async (userId) => {
   const center = await findCenterByUserId(userId);
@@ -85,4 +93,56 @@ export const searchByName = async (name) => {
 
 export const listAllApprovedCenters = async () => {
   return searchAllApprovedCenters();
+};
+
+export const listActiveGlobalTests = async () => {
+  return getActiveGlobalTests();
+};
+
+export const listMyTests = async (userId) => {
+  const center = await findCenterByUserId(userId);
+  if (!center) throw new ApiError(404, "Diagnostic center profile not found");
+  return getCenterTests(center.id);
+};
+
+export const addCenterTest = async (userId, payload) => {
+  const center = await findCenterByUserId(userId);
+  if (!center) throw new ApiError(404, "Diagnostic center profile not found");
+
+  const existingMapping = await findCenterTestByCenterAndTest(center.id, payload.testId);
+  if (existingMapping) {
+    throw new ApiError(409, "This test is already added to your center. Please update it instead.");
+  }
+
+  return addTestToCenter({
+    diagnosticCenterId: center.id,
+    testId: payload.testId,
+    price: payload.price,
+    isAvailable: payload.isAvailable,
+  });
+};
+
+export const updateCenterTestConfig = async (userId, centerTestId, payload) => {
+  const center = await findCenterByUserId(userId);
+  if (!center) throw new ApiError(404, "Diagnostic center profile not found");
+
+  const centerTest = await findCenterTestById(centerTestId);
+  if (!centerTest || centerTest.diagnosticCenterId !== center.id) {
+    throw new ApiError(404, "Test configuration not found in your center");
+  }
+
+  return updateCenterTest(centerTestId, payload);
+};
+
+export const removeCenterTestConfig = async (userId, centerTestId) => {
+  const center = await findCenterByUserId(userId);
+  if (!center) throw new ApiError(404, "Diagnostic center profile not found");
+
+  const centerTest = await findCenterTestById(centerTestId);
+  if (!centerTest || centerTest.diagnosticCenterId !== center.id) {
+    throw new ApiError(404, "Test configuration not found in your center");
+  }
+
+  await removeCenterTest(centerTestId);
+  return { deleted: true };
 };

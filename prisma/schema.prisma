@@ -39,6 +39,9 @@ model Clinic {
   id                        String                    @id @default(uuid())
   userId                    String                    @unique
   clinicName                String
+  phone                     String?
+  whatsapp                  String?
+  googleMapsUrl             String?
   address                   String?
   city                      String?
   state                     String?
@@ -72,6 +75,7 @@ model Clinic {
   referredTestRecommendations TestRecommendation[]      @relation("ReferringClinic")
   targetedTestRecommendations TestRecommendation[]      @relation("TargetClinic")
   testReferrals             TestReferral[]
+  schedules                 DoctorSchedule[]
 
   @@index([isFeatured, featuredOrder]) // Data fast fetch korar jonno index
   @@map("clinics")
@@ -106,6 +110,8 @@ model Doctor {
   queues                 Queue[]
   assignedReceptionists  ReceptionistDoctor[]
   reviews                Review[]
+  specializations        DoctorSpecialization[]
+  schedules              DoctorSchedule[]
 
   @@index([isFeatured, featuredOrder])
   @@map("doctors")
@@ -162,21 +168,25 @@ model Patient {
 }
 
 model Queue {
-  id              String        @id @default(uuid())
+  id              String         @id @default(uuid())
   doctorId        String
-  date            DateTime      @db.Date
-  currentToken    Int           @default(0)
-  lastTokenIssued Int           @default(0)
-  status          QueueStatus   @default(OPEN)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  date            DateTime       @db.Date
+  currentToken    Int            @default(0)
+  lastTokenIssued Int            @default(0)
+  status          QueueStatus    @default(OPEN)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
   clinicId        String
+  scheduleId      String?        // NEW: Link to specific session
+
   appointments    Appointment[]
   logs            QueueLog[]
-  clinic          Clinic        @relation(fields: [clinicId], references: [id], onDelete: Cascade)
-  doctor          Doctor        @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  clinic          Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  doctor          Doctor         @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  schedule        DoctorSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
 
-  @@unique([doctorId, clinicId, date])
+  // CHANGED: Added scheduleId so Morning and Evening sessions have separate queues
+  @@unique([doctorId, clinicId, date, scheduleId])
   @@map("queues")
 }
 
@@ -215,7 +225,7 @@ model Appointment {
   testRecommendations TestRecommendation[]
   testReferrals       TestReferral[]
 
-  @@unique([doctorId, clinicId, date, token])
+  @@unique([queueId, token])
   @@map("appointments")
 }
 
@@ -376,9 +386,17 @@ model DiagnosticCenter {
   isApproved        Boolean                 @default(false)
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
+  
+  // New fields
+  phone             String?
+  whatsapp          String?
+  googleMapsUrl     String?
+
+  // Relations
   staff             DiagnosticCenterStaff[]
   user              User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   incomingReferrals TestReferral[]
+  availableTests    CenterTest[]            // <--- This is the missing line
 
   @@map("diagnostic_centers")
 }
@@ -507,6 +525,13 @@ enum NotificationType {
   GENERAL
 }
 
+enum RecurrenceType {
+  DAILY
+  WEEKLY
+  MONTHLY_DATE
+  MONTHLY_WEEKDAY
+}
+
 model SearchLocation {
   id        String   @id @default(uuid())
   nameEn    String   // English Name
@@ -515,4 +540,75 @@ model SearchLocation {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Specialization {
+  id          String                 @id @default(uuid())
+  name        String                 @unique
+  description String?
+  isActive    Boolean                @default(true)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  doctors     DoctorSpecialization[]
+
+  @@map("specializations")
+}
+
+model DoctorSpecialization {
+  id               String         @id @default(uuid())
+  doctorId         String
+  specializationId String
+  createdAt        DateTime       @default(now())
+  doctor           Doctor         @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  specialization   Specialization @relation(fields: [specializationId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, specializationId])
+  @@map("doctor_specializations")
+}
+
+model DoctorSchedule {
+  id                String         @id @default(uuid())
+  doctorId          String
+  clinicId          String
+  startTime         String
+  endTime           String
+  maxPatients       Int
+  recurrenceType    RecurrenceType // DAILY, WEEKLY, MONTHLY_DATE, MONTHLY_WEEKDAY
+  recurrencePattern Json
+  isActive          Boolean        @default(true)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  clinic            Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  doctor            Doctor         @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  queues            Queue[]
+
+  @@index([doctorId, clinicId])
+  @@map("doctor_schedules")
+}
+
+model DiagnosticTest {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  description String?
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  centers     CenterTest[]
+
+  @@map("diagnostic_tests")
+}
+
+model CenterTest {
+  id                 String           @id @default(uuid())
+  diagnosticCenterId String
+  testId             String
+  price              Float?
+  isAvailable        Boolean          @default(true)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  diagnosticCenter   DiagnosticCenter @relation(fields: [diagnosticCenterId], references: [id], onDelete: Cascade)
+  test               DiagnosticTest   @relation(fields: [testId], references: [id], onDelete: Cascade)
+
+  @@unique([diagnosticCenterId, testId])
+  @@map("center_tests")
 }

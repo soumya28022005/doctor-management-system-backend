@@ -45,3 +45,39 @@ export const markLeaveSchema = z.object({
 export const delayNotificationSchema = z.object({
   delayMinutes: z.number().int().positive().max(300),
 });
+
+// === NEW: Schedule Validation Schemas ===
+export const createScheduleSchema = z.object({
+  startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "startTime must be HH:mm"),
+  endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "endTime must be HH:mm"),
+  maxPatients: z.number().int().positive().default(20), // Default 20 as per business rule
+  recurrenceType: z.enum(["DAILY", "WEEKLY", "MONTHLY_DATE", "MONTHLY_WEEKDAY"]),
+  recurrencePattern: z.record(z.any()), // e.g., { days: ["MONDAY"] } or { date: 15 }
+  isActive: z.boolean().default(true),
+}).refine((data) => data.startTime < data.endTime, {
+  message: "endTime must be after startTime",
+});
+
+export const updateScheduleSchema = z.object({
+  startTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
+  endTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
+  maxPatients: z.number().int().positive().optional(),
+  recurrenceType: z.enum(["DAILY", "WEEKLY", "MONTHLY_DATE", "MONTHLY_WEEKDAY"]).optional(),
+  recurrencePattern: z.record(z.any()).optional(),
+  isActive: z.boolean().optional(),
+}).refine((data) => {
+  if (data.startTime && data.endTime) return data.startTime < data.endTime;
+  return true;
+}, {
+  message: "endTime must be after startTime",
+});
+
+// === NEW: Step 29 Advanced Search ===
+export const advancedSearchSchema = z.object({
+  query: z.string().optional(), // Can match Doctor Name or Clinic Name
+  specializationId: z.string().uuid().optional(),
+  city: z.string().optional(),
+  maxFee: z.coerce.number().nonnegative().optional(),
+  availableToday: z.enum(["true", "false"]).optional().transform(v => v === "true"),
+  liveNow: z.enum(["true", "false"]).optional().transform(v => v === "true"),
+});

@@ -12,21 +12,34 @@ export const createUser = (data) => {
   return prisma.user.create({ data });
 };
 
-export const createUserWithProfile = ({ userData, role, dob }) => {
+// Add or replace the `createUserWithProfile` function in auth.repository.js
+export const createUserWithProfile = ({ userData, role, dob, guestPatientId }) => {
   return prisma.$transaction(async (tx) => {
+    // 1. Create the App User
     const user = await tx.user.create({ data: userData });
 
-    if (role === "CLINIC") {
-      await tx.clinic.create({
-        data: { userId: user.id, clinicName: userData.name },
-      });
-    }
-
     if (role === "PATIENT") {
-      await tx.patient.create({
-        data: { userId: user.id, dob: dob ? new Date(dob) : undefined },
-      });
+      if (guestPatientId) {
+        // STEP 9: Link existing Clinic-created Guest Patient to this new App User
+        await tx.patient.update({
+          where: { id: guestPatientId },
+          data: {
+            userId: user.id,
+            dob: dob ? new Date(dob) : undefined,
+          }
+        });
+      } else {
+        // Create an entirely new Patient record
+        await tx.patient.create({
+          data: {
+            userId: user.id,
+            dob: dob ? new Date(dob) : undefined,
+          }
+        });
+      }
     }
+    
+    // (If you have logic for creating other roles like Admin/Super Admin here, keep it)
 
     return user;
   });

@@ -41,6 +41,8 @@ import analyticsRoutes from "./modules/analytics/analytics.routes.js";
 
 import locationRoutes from './modules/location/location.routes.js';
 
+import specializationRoutes from "./modules/specialization/specialization.routes.js";
+
 const app = express();
 
 app.use(helmet({ contentSecurityPolicy: false }));
@@ -94,6 +96,8 @@ app.use("/api/v1/diagnostic-centers", diagnosticCenterRoutes);
 app.use("/api/v1/test-referrals", testReferralRoutes);
 
 app.use("/api/v1/analytics", analyticsRoutes);
+
+app.use('/api/v1/specializations', specializationRoutes);
 
 if (env.NODE_ENV == "development") {
   app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));

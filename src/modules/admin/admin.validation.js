@@ -64,3 +64,12 @@ export const setFeaturedDoctorSchema = z.object({
   isFeatured: z.boolean(),
   featuredOrder: z.number().int().nonnegative().optional(),
 });
+
+export const updateClinicAdminSchema = z.object({
+  clinicName: z.string().min(2, "Clinic name is required").optional(),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  pincode: z.string().optional(),
+});

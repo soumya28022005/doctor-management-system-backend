@@ -5,9 +5,25 @@ export const findClinicById = (id) => prisma.clinic.findUnique({ where: { id } }
 export const updateClinicProfile = (id, data) => prisma.clinic.update({ where: { id }, data });
 
 export const createDoctorWithUser = ({ userData, doctorData, clinicId }) => {
+  const { specializationIds, ...restDoctorData } = doctorData;
+
   return prisma.$transaction(async (tx) => {
     const user = await tx.user.create({ data: { ...userData, role: "DOCTOR", selfRegistered: false } });
-    const doctor = await tx.doctor.create({ data: { ...doctorData, userId: user.id, clinicId } });
+    
+    const doctorPayload = {
+      ...restDoctorData,
+      userId: user.id,
+      clinicId,
+    };
+
+    // If specialization IDs are provided, link them via the junction table
+    if (specializationIds && specializationIds.length > 0) {
+      doctorPayload.specializations = {
+        create: specializationIds.map((id) => ({ specializationId: id }))
+      };
+    }
+
+    const doctor = await tx.doctor.create({ data: doctorPayload });
     return { user, doctor };
   });
 };
@@ -47,7 +63,23 @@ export const findDoctorOrReceptionistUser = async (userId, clinicId) => {
   return null;
 };
 
-export const updateDoctor = (id, data) => prisma.doctor.update({ where: { id }, data });
+export const updateDoctor = (id, data) => {
+  const { specializationIds, ...restData } = data;
+  const updatePayload = { ...restData };
+
+  // If specialization IDs are updated, clear old associations and create new ones
+  if (specializationIds) {
+    updatePayload.specializations = {
+      deleteMany: {}, // Clean up existing links for this doctor
+      create: specializationIds.map((specId) => ({ specializationId: specId }))
+    };
+  }
+
+  return prisma.doctor.update({ 
+    where: { id }, 
+    data: updatePayload 
+  });
+};
 export const searchClinicsByName = (name) => prisma.clinic.findMany({ where: { isApproved: true, clinicName: { contains: name, mode: "insensitive" } }, select: { id: true, clinicName: true, city: true, address: true, logo: true } });
 export const updateClinicLogo = (clinicId, logo) => prisma.clinic.update({ where: { id: clinicId }, data: { logo } });
 

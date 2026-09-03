@@ -2,7 +2,8 @@ import asyncHandler from "../../utils/asyncHandler.js";
 import ApiResponse from "../../utils/apiResponse.js";
 import ApiError from "../../utils/apiError.js";
 import * as centerService from "./diagnosticCenter.service.js";
-import { updateCenterProfileSchema, createStaffSchema, changeStaffPasswordSchema } from "./diagnosticCenter.validation.js";
+import { updateCenterProfileSchema, createStaffSchema, changeStaffPasswordSchema, addCenterTestSchema, 
+  updateCenterTestSchema } from "./diagnosticCenter.validation.js";
 
 export const getMyProfile = asyncHandler(async (req, res) => {
   const center = await centerService.getMyProfile(req.user.id);
@@ -48,4 +49,31 @@ export const searchByName = asyncHandler(async (req, res) => {
 export const listAllApprovedCenters = asyncHandler(async (req, res) => {
   const centers = await centerService.listAllApprovedCenters();
   res.status(200).json(new ApiResponse(true, "Diagnostic centers fetched", { centers }));
+});
+
+export const getGlobalTests = asyncHandler(async (req, res) => {
+  const tests = await centerService.listActiveGlobalTests();
+  res.status(200).json(new ApiResponse(true, "Global diagnostic tests fetched", { tests }));
+});
+
+export const getMyTests = asyncHandler(async (req, res) => {
+  const tests = await centerService.listMyTests(req.user.id);
+  res.status(200).json(new ApiResponse(true, "Center tests fetched", { tests }));
+});
+
+export const addCenterTest = asyncHandler(async (req, res) => {
+  const data = addCenterTestSchema.parse(req.body);
+  const test = await centerService.addCenterTest(req.user.id, data);
+  res.status(201).json(new ApiResponse(true, "Test added to center successfully", { test }));
+});
+
+export const updateCenterTest = asyncHandler(async (req, res) => {
+  const data = updateCenterTestSchema.parse(req.body);
+  const test = await centerService.updateCenterTestConfig(req.user.id, req.params.testId, data);
+  res.status(200).json(new ApiResponse(true, "Test configuration updated", { test }));
+});
+
+export const removeCenterTest = asyncHandler(async (req, res) => {
+  await centerService.removeCenterTestConfig(req.user.id, req.params.testId);
+  res.status(200).json(new ApiResponse(true, "Test removed from center"));
 });

@@ -30,6 +30,17 @@ import { findReceptionistAssignment } from "../queue/queue.repository.js";
 import { emitAppointmentNotification } from "../../sockets/notification.socket.js";
 import { uploadBufferToCloudinary, deleteFromCloudinary } from "../../utils/cloudinaryUpload.js";
 import { updateDoctorProfilePhoto } from "./doctor.repository.js";
+import { searchDoctorsAdvancedDB } from "./doctor.repository.js";
+import { evaluateDoctorStatus } from "./doctor.helper.js";
+
+import { checkScheduleConflict } from "./schedule.helper.js";
+import {
+  createDoctorSchedule,
+  updateDoctorSchedule,
+  deleteDoctorSchedule,
+  findDoctorSchedules,
+  findDoctorScheduleById
+} from "./doctor.repository.js";
 
 export const searchByName = async (name) => {
   return searchDoctorsByName(name);
@@ -513,4 +524,97 @@ export const getDoctorProfileWithClinics = async (doctorId, locationCity = null)
     : [primaryClinic, ...associatedClinics];
 
   return { ...doctor, allClinics };
+};
+
+export const addSchedule = async (user, doctorId, clinicId, payload) => {
+  await assertDoctorClinicManageAccess(user, doctorId, clinicId); // Reusing existing access control
+
+  const existingSchedules = await findDoctorSchedules(doctorId, clinicId);
+  const conflict = checkScheduleConflict(payload, existingSchedules);
+
+  if (conflict) {
+    throw new ApiError(409, `This schedule conflicts with an existing session (${conflict.startTime}-${conflict.endTime})`);
+  }
+
+  return createDoctorSchedule({
+    doctorId,
+    clinicId,
+    startTime: payload.startTime,
+    endTime: payload.endTime,
+    maxPatients: payload.maxPatients,
+    recurrenceType: payload.recurrenceType,
+    recurrencePattern: payload.recurrencePattern,
+    isActive: payload.isActive
+  });
+};
+
+export const editSchedule = async (user, doctorId, clinicId, scheduleId, payload) => {
+  await assertDoctorClinicManageAccess(user, doctorId, clinicId);
+
+  const schedule = await findDoctorScheduleById(scheduleId);
+  if (!schedule || schedule.doctorId !== doctorId || schedule.clinicId !== clinicId) {
+    throw new ApiError(404, "Schedule not found for this doctor/clinic");
+  }
+
+  // If changing time/pattern, check conflicts against OTHER schedules
+  if (payload.startTime || payload.endTime || payload.recurrencePattern) {
+    const existingSchedules = (await findDoctorSchedules(doctorId, clinicId)).filter(s => s.id !== scheduleId);
+    
+    const candidate = {
+      startTime: payload.startTime || schedule.startTime,
+      endTime: payload.endTime || schedule.endTime,
+      recurrenceType: payload.recurrenceType || schedule.recurrenceType,
+      recurrencePattern: payload.recurrencePattern || schedule.recurrencePattern,
+    };
+
+    const conflict = checkScheduleConflict(candidate, existingSchedules);
+    if (conflict) throw new ApiError(409, `Update conflicts with existing session (${conflict.startTime}-${conflict.endTime})`);
+  }
+
+  return updateDoctorSchedule(scheduleId, payload);
+};
+
+export const removeSchedule = async (user, doctorId, clinicId, scheduleId) => {
+  await assertDoctorClinicManageAccess(user, doctorId, clinicId);
+
+  const schedule = await findDoctorScheduleById(scheduleId);
+  if (!schedule || schedule.doctorId !== doctorId || schedule.clinicId !== clinicId) {
+    throw new ApiError(404, "Schedule not found");
+  }
+
+  // In a real production system with existing appointments tied to a schedule, 
+  // you might want to soft-delete (isActive = false). For now, we do a hard delete or allow the frontend to set isActive = false via update.
+  await deleteDoctorSchedule(scheduleId);
+  return { deleted: true };
+};
+
+export const listSchedules = async (doctorId, clinicId) => {
+  return findDoctorSchedules(doctorId, clinicId);
+};
+
+// === NEW: Step 29 Advanced Search ===
+export const searchDoctorsAdvanced = async (filters) => {
+  const doctors = await searchDoctorsAdvancedDB(filters);
+
+  let mappedDoctors = doctors.map(doctor => {
+    const status = evaluateDoctorStatus(doctor);
+    
+    // Clean up heavy arrays before sending to frontend
+    delete doctor.schedules;
+    delete doctor.leaves;
+    delete doctor.appointments;
+    
+    return { ...doctor, liveStatus: status };
+  });
+
+  // Apply real-time JS filters
+  if (filters.liveNow) {
+    mappedDoctors = mappedDoctors.filter(doc => doc.liveStatus.isLive);
+  }
+  
+  if (filters.availableToday) {
+    mappedDoctors = mappedDoctors.filter(doc => doc.liveStatus.isAvailable);
+  }
+
+  return mappedDoctors;
 };

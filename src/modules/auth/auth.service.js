@@ -1,5 +1,7 @@
 import ApiError from "../../utils/apiError.js";
 import redis from "../../config/redis.config.js";
+import { normalizePhone } from "../../utils/phoneNormalizer.js";
+import { findPatientByPhone } from "../patient/patient.repository.js";
 import {
   findUserByEmail,
   findUserById,
@@ -23,13 +25,28 @@ export const registerUser = async ({ name, email, password, phone, dob }) => {
     throw new ApiError(409, "User with this email already exists");
   }
 
+  const normalizedPhone = normalizePhone(phone);
   const hashedPassword = await hashPassword(password);
-  const role = "PATIENT"; // self-registration is Patient-only
+  const role = "PATIENT"; 
 
+  // STEP 9: Check if a Guest Patient record already exists with this phone number
+  let guestPatientId = null;
+  if (normalizedPhone) {
+    const existingPatient = await findPatientByPhone(normalizedPhone);
+    
+    // If the patient exists but has no userId, it's a Clinic-created Guest. We will link it.
+    if (existingPatient && !existingPatient.userId) {
+      guestPatientId = existingPatient.id;
+    } 
+    // If a user already owns this phone number, Prisma's unique constraint on User.phone will catch it.
+  }
+
+  // Pass guestPatientId to the repository so it links instead of creating a duplicate
   const user = await createUserWithProfile({
-    userData: { name, email, phone, role, password: hashedPassword },
+    userData: { name, email, phone: normalizedPhone, role, password: hashedPassword },
     role,
     dob,
+    guestPatientId // NEW: Instruction to link
   });
 
   return sanitizeUser(user);

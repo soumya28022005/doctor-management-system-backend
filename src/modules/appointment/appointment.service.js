@@ -14,6 +14,7 @@ import {
   findAppointmentsForPatient,
   getQueueModeForDoctorClinic,
   getClinicById,
+  getDoctorScheduleById,
   getWorkingHoursForClinicDay,
   getHolidayForClinicDate,
   getConsultationMinutesForDoctorClinic,
@@ -34,17 +35,17 @@ export const searchForDoctors = async (filters) => {
   return searchDoctors(filters);
 };
 
-export const bookOnlineAppointment = async (patientUserId, { doctorId, clinicId, date }) => {
+export const bookOnlineAppointment = async (patientUserId, { doctorId, clinicId, scheduleId, date }) => {
   const patient = await getPatientByUserId(patientUserId);
   if (!patient) throw new ApiError(404, "Patient profile not found");
 
   await assertBookableClinic(doctorId, clinicId);
   await assertClinicOperational(clinicId, date, { isOnlineBooking: true }, doctorId);
-  await validateBookingWindow(doctorId, clinicId);
 
   return bookAppointmentCore({
     doctorId,
     clinicId,
+    scheduleId, // NEW
     patientId: patient.id,
     date,
     bookingSource: "ONLINE",
@@ -53,7 +54,7 @@ export const bookOnlineAppointment = async (patientUserId, { doctorId, clinicId,
 
 export const bookReceptionAppointment = async (
   user,
-  { doctorId, clinicId, date, patientId, newPatient, bookingSource }
+  { doctorId, clinicId, scheduleId, date, patientId, newPatient, bookingSource }
 ) => {
   await assertReceptionBookingAccess(user, clinicId, doctorId);
   await assertBookableClinic(doctorId, clinicId);
@@ -72,6 +73,7 @@ export const bookReceptionAppointment = async (
   return bookAppointmentCore({
     doctorId,
     clinicId,
+    scheduleId, // NEW
     patientId: finalPatientId,
     date,
     bookingSource: bookingSource || "RECEPTION",
@@ -253,36 +255,61 @@ const assertBookableClinic = async (doctorId, clinicId) => {
   }
 };
 
-const bookAppointmentCore = async ({ doctorId, clinicId, patientId, date, bookingSource }) => {
+const bookAppointmentCore = async ({ doctorId, clinicId, scheduleId, patientId, date, bookingSource }) => {
   const doctor = await getDoctorById(doctorId);
   if (!doctor) throw new ApiError(404, "Doctor not found");
   if (!doctor.isVerified) throw new ApiError(403, "Doctor is not yet verified");
 
-  const queue = await findOrCreateQueue(doctorId, clinicId, date);
-  if (queue.status === "CLOSED") {
-    throw new ApiError(400, "Queue is closed for this date");
+  // Validate the requested schedule actually exists and belongs to the doctor/clinic
+  const schedule = await getDoctorScheduleById(scheduleId);
+  if (!schedule || schedule.doctorId !== doctorId || schedule.clinicId !== clinicId) {
+    throw new ApiError(404, "Invalid schedule selected");
   }
 
+  if (!schedule.isActive) throw new ApiError(400, "This schedule is currently inactive");
+
+  // Find or Create Queue for this specific session
+  const queue = await findOrCreateQueue(doctorId, clinicId, date, scheduleId);
+  if (queue.status === "CLOSED") {
+    throw new ApiError(400, "Queue is closed for this session");
+  }
+
+  // Transactional creation + Capacity enforcement
   const { appointment, queue: updatedQueue } = await createAppointmentWithToken({
     doctorId,
     clinicId,
     patientId,
     queueId: queue.id,
+    scheduleId,
     date,
     bookingSource,
   });
 
+  // Calculate current capacity to broadcast
+  const activeCount = await prisma.appointment.count({
+    where: { queueId: queue.id, status: { in: ["WAITING", "CHECKED_IN"] } }
+  });
+  
+  const capacityPayload = {
+    scheduleId,
+    maxPatients: schedule.maxPatients,
+    currentBookings: activeCount,
+    isFull: activeCount >= schedule.maxPatients
+  };
+
   const queueMode = await getQueueModeForDoctorClinic(doctorId, clinicId);
   const broadcastPayload =
     queueMode === "PRIVATE"
-      ? { doctorId, clinicId, date, status: updatedQueue.status }
+      ? { doctorId, clinicId, date, scheduleId, status: updatedQueue.status, capacity: capacityPayload }
       : {
           doctorId,
           clinicId,
           date,
+          scheduleId,
           currentToken: updatedQueue.currentToken,
           lastTokenIssued: updatedQueue.lastTokenIssued,
           status: updatedQueue.status,
+          capacity: capacityPayload // NEW: Broadcast capacity updates instantly (Rule 21)
         };
 
   emitQueueUpdate(doctorId, clinicId, broadcastPayload);
@@ -293,7 +320,7 @@ const bookAppointmentCore = async ({ doctorId, clinicId, patientId, date, bookin
       userId: patient.userId,
       type: "APPOINTMENT_BOOKED",
       title: "Appointment Confirmed",
-      message: `Your appointment is confirmed — Token #${appointment.token} for ${date}.`,
+      message: `Your appointment is confirmed — Token #${appointment.token} for ${date} (${schedule.startTime} - ${schedule.endTime}).`,
       meta: { appointmentId: appointment.id, doctorId, clinicId, date, token: appointment.token },
     });
   }
@@ -358,10 +385,9 @@ const assertClinicOperational = async (clinicId, date, { isOnlineBooking }, doct
   }
 };
 
-export const processWalkInAppointment = async (user, { doctorId, phone, name, age }) => {
+export const processWalkInAppointment = async (user, { doctorId, scheduleId, phone, name, age }) => {
   let clinicId;
 
-  // 1. Get Clinic ID securely via repository
   if (user.role === "CLINIC") {
     const clinic = await findClinicByUserId(user.id);
     if (!clinic) throw new ApiError(404, "Clinic not found");
@@ -374,24 +400,21 @@ export const processWalkInAppointment = async (user, { doctorId, phone, name, ag
     throw new ApiError(403, "Unauthorized to book walk-ins");
   }
 
-  // 2. Validate doctor belongs to clinic (Using your existing repo function)
   await assertBookableClinic(doctorId, clinicId);
 
-  // 3. Find existing patient or create guest (Using Repository)
   let patient = await findPatientByPhone(phone);
-  
   if (!patient) {
     patient = await createWalkInPatient({ name, age: Number(age), phone });
   }
 
-  // 4. Create appointment (date normalized to today)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // 5. Use your existing core logic to generate Token and Queue
+  // Walk-ins use the exact same appointment/queue system and consume same capacity
   const appointment = await bookAppointmentCore({
     doctorId,
     clinicId,
+    scheduleId, // NEW
     patientId: patient.id,
     date: today,
     bookingSource: "WALK_IN"
@@ -399,3 +422,4 @@ export const processWalkInAppointment = async (user, { doctorId, phone, name, ag
 
   return { appointment, token: appointment.token };
 };
+

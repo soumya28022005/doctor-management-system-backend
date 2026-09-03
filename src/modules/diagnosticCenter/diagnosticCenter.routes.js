@@ -6,9 +6,10 @@ import upload from "../../middlewares/upload.middleware.js";
 
 const router = Router();
 
-// Any authenticated user can browse/search diagnostic centers (needed to create a referral)
+// Any authenticated user can browse/search diagnostic centers and view global tests
 router.get("/search", authMiddleware, centerController.searchByName);
 router.get("/all", authMiddleware, centerController.listAllApprovedCenters);
+router.get("/global-tests", authMiddleware, centerController.getGlobalTests); // NEW
 
 router.use(authMiddleware, roleMiddleware("DIAGNOSTIC_CENTER"));
 
@@ -20,5 +21,11 @@ router.get("/staff", centerController.listStaff);
 router.patch("/staff/change-password", centerController.changeStaffPassword);
 
 router.post("/logo", upload.single("photo"), centerController.uploadLogo);
+
+// === NEW: Step 26 Diagnostic Tests Routes ===
+router.get("/tests", centerController.getMyTests);
+router.post("/tests", centerController.addCenterTest);
+router.patch("/tests/:testId", centerController.updateCenterTest);
+router.delete("/tests/:testId", centerController.removeCenterTest);
 
 export default router;

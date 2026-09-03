@@ -275,4 +275,32 @@ router.patch("/doctors/:doctorId/featured", adminController.setFeaturedDoctor);
  */
 router.get("/doctors/featured", adminController.listFeaturedDoctors);
 
+/**
+ * @swagger
+ * /admin/clinics/{clinicId}:
+ *   patch:
+ *     summary: Edit clinic details (Super Admin)
+ *     tags: [Admin]
+ */
+router.patch(
+  "/clinics/:clinicId",
+  authMiddleware,
+  roleMiddleware("SUPER_ADMIN"),
+  adminController.updateClinic
+);
+
+/**
+ * @swagger
+ * /admin/clinics/{clinicId}:
+ *   delete:
+ *     summary: Soft-delete/deactivate a clinic (Super Admin)
+ *     tags: [Admin]
+ */
+router.delete(
+  "/clinics/:clinicId",
+  authMiddleware,
+  roleMiddleware("SUPER_ADMIN"),
+  adminController.deactivateClinic
+);
+
 export default router;

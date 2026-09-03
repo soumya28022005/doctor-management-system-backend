@@ -66,3 +66,50 @@ export const searchAllApprovedCenters = () => {
     select: { id: true, centerName: true, city: true, address: true, logo: true },
   });
 };
+
+export const getActiveGlobalTests = () => {
+  return prisma.diagnosticTest.findMany({
+    where: { isActive: true },
+    orderBy: { name: "asc" },
+  });
+};
+
+// Fetch tests specific to a center (with pricing and availability)
+export const getCenterTests = (diagnosticCenterId) => {
+  return prisma.centerTest.findMany({
+    where: { diagnosticCenterId },
+    include: { test: true },
+    orderBy: { test: { name: "asc" } },
+  });
+};
+
+export const findCenterTestById = (id) => {
+  return prisma.centerTest.findUnique({ where: { id } });
+};
+
+export const findCenterTestByCenterAndTest = (diagnosticCenterId, testId) => {
+  return prisma.centerTest.findUnique({
+    where: { diagnosticCenterId_testId: { diagnosticCenterId, testId } },
+  });
+};
+
+export const addTestToCenter = (data) => {
+  return prisma.centerTest.create({
+    data,
+    include: { test: true },
+  });
+};
+
+export const updateCenterTest = (id, data) => {
+  return prisma.centerTest.update({
+    where: { id },
+    data,
+    include: { test: true },
+  });
+};
+
+export const removeCenterTest = (id) => {
+  return prisma.centerTest.delete({
+    where: { id },
+  });
+};

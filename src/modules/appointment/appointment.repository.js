@@ -1,4 +1,5 @@
 import prisma from "../../config/db.config.js";
+import ApiError from "../../utils/apiError.js";
 
 export const searchDoctors = async ({ q, doctorName, clinicName, clinicId, city, date }) => {
   const where = {
@@ -71,11 +72,30 @@ export const getBookableClinicsForDoctor = async (doctorId) => {
   return [doctor.clinicId, ...approvedAssociations.map((a) => a.clinicId)];
 };
 
-export const findOrCreateQueue = (doctorId, clinicId, date) => {
-  return prisma.queue.upsert({
-    where: { doctorId_clinicId_date: { doctorId, clinicId, date: new Date(date) } },
-    update: {},
-    create: { doctorId, clinicId, date: new Date(date) },
+export const findOrCreateQueue = async (doctorId, clinicId, date, scheduleId) => {
+  const queue = await prisma.queue.findUnique({
+    where: {
+      doctorId_clinicId_date_scheduleId: {
+        doctorId,
+        clinicId,
+        date: new Date(date),
+        scheduleId
+      }
+    }
+  });
+
+  if (queue) return queue;
+
+  return prisma.queue.create({
+    data: {
+      doctorId,
+      clinicId,
+      date: new Date(date),
+      scheduleId, // Bind Queue to specific session
+      status: "OPEN",
+      currentToken: 0,
+      lastTokenIssued: 0,
+    }
   });
 };
 
@@ -86,13 +106,42 @@ export const getDoctorById = (id) => {
 export const getPatientById = (id) => {
   return prisma.patient.findUnique({ where: { id } });
 };
+export const getDoctorScheduleById = (scheduleId) => {
+  return prisma.doctorSchedule.findUnique({ where: { id: scheduleId } });
+};
 
-export const createAppointmentWithToken = ({ doctorId, clinicId, patientId, queueId, date, bookingSource }) => {
+export const createAppointmentWithToken = async ({ doctorId, clinicId, patientId, queueId, scheduleId, date, bookingSource }) => {
+  // Use a Serializable transaction to ensure capacity is strictly enforced (Rule 22)
   return prisma.$transaction(async (tx) => {
-    const queue = await tx.queue.update({
+    const queue = await tx.queue.findUnique({
       where: { id: queueId },
-      data: { lastTokenIssued: { increment: 1 } },
+      include: { schedule: true } // Bring in schedule to check maxPatients
     });
+
+    if (!queue) throw new ApiError(404, "Queue not found");
+    if (queue.status === "CLOSED") throw new ApiError(400, "Queue is closed for this session");
+
+    // === CAPACITY CHECK (STEP 6) ===
+    const schedule = queue.schedule;
+    if (!schedule) throw new ApiError(500, "Queue is missing schedule attachment");
+    
+    // Default capacity is 20 if somehow missing
+    const maxCapacity = schedule.maxPatients || 20;
+
+    // Count currently ACTIVE appointments in this queue
+    const activeAppointmentsCount = await tx.appointment.count({
+      where: {
+        queueId,
+        status: { in: ["WAITING", "CHECKED_IN"] } // Cancelled/Completed don't consume future booking space
+      }
+    });
+
+    if (activeAppointmentsCount >= maxCapacity) {
+      throw new ApiError(409, `This session is full (Capacity: ${maxCapacity}/${maxCapacity}). Please select another session.`);
+    }
+
+    // === QUEUE/SERIAL GENERATION (STEP 11) ===
+    const newToken = queue.lastTokenIssued + 1;
 
     const appointment = await tx.appointment.create({
       data: {
@@ -101,17 +150,19 @@ export const createAppointmentWithToken = ({ doctorId, clinicId, patientId, queu
         patientId,
         queueId,
         date: new Date(date),
-        token: queue.lastTokenIssued,
+        token: newToken,
         bookingSource,
-      },
-      include: {
-        patient: { include: { user: { select: { name: true, phone: true } } } },
-        doctor: { include: { user: { select: { name: true } } } },
+        status: "WAITING"
       },
     });
 
-    return { appointment, queue };
-  });
+    const updatedQueue = await tx.queue.update({
+      where: { id: queueId },
+      data: { lastTokenIssued: newToken },
+    });
+
+    return { appointment, queue: updatedQueue };
+  }, { isolationLevel: 'Serializable' }); // Strict protection against concurrent bookings
 };
 
 export const createWalkInPatient = ({ name, age, phone }) => {

@@ -1,6 +1,7 @@
 import asyncHandler from "../../utils/asyncHandler.js";
 import ApiResponse from "../../utils/apiResponse.js";
 import * as adminService from "./admin.service.js";
+import { updateClinicAdminSchema } from "./admin.validation.js";
 import {
   listUsersQuerySchema,
   toggleUserStatusSchema,
@@ -121,4 +122,17 @@ export const setFeaturedDoctor = asyncHandler(async (req, res) => {
 export const listFeaturedDoctors = asyncHandler(async (req, res) => {
   const doctors = await adminService.listFeaturedDoctors();
   res.status(200).json(new ApiResponse(true, "Featured doctors fetched", { doctors }));
+});
+
+// === NEW: Step 24 Clinic Management ===
+
+export const updateClinic = asyncHandler(async (req, res) => {
+  const data = updateClinicAdminSchema.parse(req.body);
+  const clinic = await adminService.editClinic(req.params.clinicId, data);
+  res.status(200).json(new ApiResponse(true, "Clinic updated successfully", { clinic }));
+});
+
+export const deactivateClinic = asyncHandler(async (req, res) => {
+  await adminService.deactivateClinic(req.params.clinicId);
+  res.status(200).json(new ApiResponse(true, "Clinic deactivated successfully"));
 });

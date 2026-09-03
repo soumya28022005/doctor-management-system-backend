@@ -1,4 +1,5 @@
 import prisma from "../../config/db.config.js";
+import { getTodayISTDate, evaluateDoctorStatus } from "./doctor.helper.js";
 
 export const searchDoctorsByName = (name) => {
   return prisma.doctor.findMany({
@@ -124,36 +125,6 @@ export const findUpcomingLeaves = (doctorId, clinicId) => {
   });
 };
 
-export const getAllVerifiedDoctors = async () => {
-  return await prisma.doctor.findMany({
-    where: { isVerified: true },
-    include: {
-      user: { select: { name: true, email: true, avatar: true } },
-      clinic: { select: { clinicName: true, address: true, city: true } }
-    }
-  });
-};
-
-export const getFeaturedDoctors = async () => {
-  return await prisma.doctor.findMany({
-    where: { isVerified: true, isFeatured: true },
-    orderBy: { featuredOrder: 'asc' },
-    include: {
-      user: { select: { name: true, email: true, avatar: true } },
-      clinic: { select: { clinicName: true, address: true } }
-    }
-  });
-};
-
-export const getAvailableDoctors = async () => {
-  return await prisma.doctor.findMany({
-    where: { isVerified: true, isAvailable: true },
-    include: {
-      user: { select: { name: true, email: true, avatar: true } },
-      clinic: { select: { clinicName: true, address: true } }
-    }
-  });
-};
 
 export const getDoctorByIdWithClinic = async (doctorId) => {
   return await prisma.doctor.findUnique({
@@ -166,5 +137,129 @@ export const updateDoctorDetails = async (doctorId, data) => {
   return await prisma.doctor.update({
     where: { id: doctorId },
     data
+  });
+};
+
+// === NEW: Doctor Schedule Database Operations ===
+export const createDoctorSchedule = (data) => prisma.doctorSchedule.create({ data });
+
+export const updateDoctorSchedule = (id, data) => prisma.doctorSchedule.update({
+  where: { id },
+  data
+});
+
+export const deleteDoctorSchedule = (id) => prisma.doctorSchedule.delete({
+  where: { id }
+});
+
+export const findDoctorSchedules = (doctorId, clinicId) => prisma.doctorSchedule.findMany({
+  where: { doctorId, clinicId },
+  orderBy: { startTime: 'asc' }
+});
+
+export const findDoctorScheduleById = (id) => prisma.doctorSchedule.findUnique({
+  where: { id }
+});
+
+const getDoctorIncludeForStatus = (todayDate) => ({
+  user: { select: { name: true, email: true, avatar: true } },
+  clinic: {
+    select: { 
+      clinicName: true, 
+      address: true, 
+      city: true, 
+      isAvailableToday: true,
+      // FIXED: Moved inside 'select' instead of using 'include'
+      holidays: { where: { date: todayDate } } 
+    },
+  },
+  schedules: { where: { isActive: true } },
+  leaves: { where: { date: todayDate } },
+  appointments: {
+    where: {
+      date: todayDate,
+      status: { in: ["WAITING", "CHECKED_IN"] },
+    },
+    select: { id: true, status: true, queue: { select: { scheduleId: true } } },
+  },
+});
+
+const mapDoctorStatus = (doctor) => {
+  const status = evaluateDoctorStatus(doctor);
+  // Clean up heavy arrays before sending to frontend
+  delete doctor.schedules;
+  delete doctor.leaves;
+  delete doctor.appointments;
+  return { ...doctor, liveStatus: status };
+};
+
+export const getAllVerifiedDoctors = async () => {
+  const todayDate = getTodayISTDate();
+  const doctors = await prisma.doctor.findMany({
+    where: { isVerified: true },
+    include: getDoctorIncludeForStatus(todayDate),
+  });
+  return doctors.map(mapDoctorStatus);
+};
+
+export const getFeaturedDoctors = async () => {
+  const todayDate = getTodayISTDate();
+  const doctors = await prisma.doctor.findMany({
+    where: { isVerified: true, isFeatured: true },
+    orderBy: { featuredOrder: "asc" },
+    include: getDoctorIncludeForStatus(todayDate),
+  });
+  return doctors.map(mapDoctorStatus);
+};
+
+export const getAvailableDoctors = async () => {
+  const todayDate = getTodayISTDate();
+  const doctors = await prisma.doctor.findMany({
+    where: { isVerified: true },
+    include: getDoctorIncludeForStatus(todayDate),
+  });
+
+  return doctors
+    .map(mapDoctorStatus)
+    // Filter strictly by the backend-calculated isAvailable flag
+    .filter((doc) => doc.liveStatus.isAvailable);
+};
+
+// === NEW: Step 29 Advanced Search ===
+export const searchDoctorsAdvancedDB = async ({ query, specializationId, city, maxFee }) => {
+  const todayDate = getTodayISTDate();
+
+  // Build dynamic WHERE clause
+  const whereClause = {
+    isVerified: true,
+  };
+
+  if (query) {
+    whereClause.OR = [
+      { user: { name: { contains: query, mode: "insensitive" } } },
+      { clinic: { clinicName: { contains: query, mode: "insensitive" } } }
+    ];
+  }
+
+  if (specializationId) {
+    whereClause.specializations = {
+      some: { specializationId }
+    };
+  }
+
+  if (city) {
+    whereClause.clinic = {
+      city: { equals: city, mode: "insensitive" }
+    };
+  }
+
+  if (maxFee !== undefined) {
+    whereClause.fee = { lte: maxFee };
+  }
+
+  return prisma.doctor.findMany({
+    where: whereClause,
+    include: getDoctorIncludeForStatus(todayDate),
+    orderBy: [{ isFeatured: "desc" }, { featuredOrder: "asc" }],
   });
 };

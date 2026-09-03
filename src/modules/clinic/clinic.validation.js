@@ -13,7 +13,8 @@ export const createDoctorSchema = z.object({
   email: z.string().email("Invalid email"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   phone: z.string().optional(),
-  specialization: z.string().optional(),
+  specialization: z.string().optional(), // Kept for legacy/fallback text
+  specializationIds: z.array(z.string().uuid()).optional(), // DB-driven specializations
   qualification: z.string().optional(),
   experience: z.number().int().nonnegative().optional(),
   fee: z.number().nonnegative().optional(),
@@ -29,6 +30,7 @@ export const updateDoctorSchema = z.object({
     .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "startTime must be in HH:mm 24-hour format")
     .optional(),
   specialization: z.string().optional(),
+  specializationIds: z.array(z.string().uuid()).optional(), // DB-driven specializations
   qualification: z.string().optional(),
   experience: z.number().int().nonnegative().optional(),
   fee: z.number().nonnegative().optional(),

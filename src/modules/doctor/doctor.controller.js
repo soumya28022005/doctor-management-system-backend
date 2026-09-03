@@ -10,7 +10,9 @@ import {
   sendRequestToClinicSchema,
   respondToRequestSchema,
 } from "./doctor.validation.js";
+import { advancedSearchSchema } from "./doctor.validation.js";
 import { updateConsultationTimeSchema, markLeaveSchema, delayNotificationSchema  } from "./doctor.validation.js";
+import { createScheduleSchema, updateScheduleSchema } from "./doctor.validation.js";
 
 export const searchByName = asyncHandler(async (req, res) => {
   const { name } = searchDoctorsByNameSchema.parse(req.query);
@@ -197,4 +199,36 @@ export const getDoctorById = asyncHandler(async (req, res) => {
   res.status(200).json(
     new ApiResponse(true, "Doctor profile fetched successfully", doctor)
   );
+});
+
+// === NEW: Doctor Schedule Controllers ===
+
+export const addSchedule = asyncHandler(async (req, res) => {
+  const data = createScheduleSchema.parse(req.body);
+  const schedule = await doctorService.addSchedule(req.user, req.params.doctorId, req.params.clinicId, data);
+  res.status(201).json(new ApiResponse(true, "Schedule created successfully", { schedule }));
+});
+
+export const updateSchedule = asyncHandler(async (req, res) => {
+  const data = updateScheduleSchema.parse(req.body);
+  const schedule = await doctorService.editSchedule(req.user, req.params.doctorId, req.params.clinicId, req.params.scheduleId, data);
+  res.status(200).json(new ApiResponse(true, "Schedule updated successfully", { schedule }));
+});
+
+export const deleteSchedule = asyncHandler(async (req, res) => {
+  await doctorService.removeSchedule(req.user, req.params.doctorId, req.params.clinicId, req.params.scheduleId);
+  res.status(200).json(new ApiResponse(true, "Schedule deleted successfully"));
+});
+
+export const getSchedules = asyncHandler(async (req, res) => {
+  const schedules = await doctorService.listSchedules(req.params.doctorId, req.params.clinicId);
+  res.status(200).json(new ApiResponse(true, "Schedules fetched successfully", { schedules }));
+});
+
+// === NEW: Step 29 Advanced Search ===
+export const advancedSearch = asyncHandler(async (req, res) => {
+  const filters = advancedSearchSchema.parse(req.query);
+  const doctors = await doctorService.searchDoctorsAdvanced(filters);
+  
+  res.status(200).json(new ApiResponse(true, "Advanced search completed", { doctors }));
 });

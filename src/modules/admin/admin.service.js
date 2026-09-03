@@ -16,7 +16,7 @@ import {
   updatePlatformSettings,
   findAllClinics,
   countClinics,
-  findClinicByIdRaw,
+ updateClinicByAdmin, softDeleteClinic, findClinicByIdRaw,
   setClinicApproval,
   findAllDoctorsUnverified,
   findDoctorByIdRaw,
@@ -234,4 +234,22 @@ export const setDoctorFeaturedStatus = async (doctorId, isFeatured, featuredOrde
 
 export const listFeaturedDoctors = async () => {
   return findFeaturedDoctors();
+};
+
+export const editClinic = async (clinicId, payload) => {
+  const clinic = await findClinicByIdRaw(clinicId);
+  if (!clinic) throw new ApiError(404, "Clinic not found");
+  
+  return updateClinicByAdmin(clinicId, payload);
+};
+
+export const deactivateClinic = async (clinicId) => {
+  const clinic = await findClinicByIdRaw(clinicId);
+  if (!clinic) throw new ApiError(404, "Clinic not found");
+
+  try {
+    return await softDeleteClinic(clinicId);
+  } catch (error) {
+    throw new ApiError(500, "Failed to deactivate clinic");
+  }
 };

@@ -156,3 +156,45 @@ export const findFeaturedDoctors = () => {
     orderBy: { featuredOrder: "asc" },
   });
 };
+
+// === NEW: Step 24 Clinic Management ===
+
+export const updateClinicByAdmin = async (id, { phone, ...clinicData }) => {
+  return prisma.$transaction(async (tx) => {
+    const clinic = await tx.clinic.update({
+      where: { id },
+      data: { ...clinicData, phone }
+    });
+
+    // Sync the phone number to the associated User account if provided
+    if (phone) {
+      await tx.user.update({
+        where: { id: clinic.userId },
+        data: { phone }
+      });
+    }
+
+    return clinic;
+  });
+};
+
+export const softDeleteClinic = async (id) => {
+  return prisma.$transaction(async (tx) => {
+    const clinic = await tx.clinic.findUnique({ where: { id } });
+    if (!clinic) throw new Error("Clinic not found");
+
+    // 1. Revoke approval and availability (removes from public directories)
+    const updatedClinic = await tx.clinic.update({
+      where: { id },
+      data: { isApproved: false, isAvailableToday: false }
+    });
+
+    // 2. Deactivate the User account (prevents login without destroying history)
+    await tx.user.update({
+      where: { id: clinic.userId },
+      data: { isActive: false }
+    });
+
+    return updatedClinic;
+  });
+};
