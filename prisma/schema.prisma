@@ -145,26 +145,25 @@ model ReceptionistDoctor {
 }
 
 model Patient {
-  id                  String               @id @default(uuid())
-  userId              String?              @unique
-  dob                 DateTime?
-  gender              String?
-  address             String?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  age                 Int?
-  bloodGroup          String?
-  latitude            Float?
-  longitude           Float?
-  name                String?
-  phone               String?
-  appointments        Appointment[]
-  user                User?                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reviews             Review[]
-  testRecommendations TestRecommendation[]
-  testReferrals       TestReferral[]
+  id          String   @id @default(uuid())
+  userId      String?  @unique
+  name        String
+  phone       String   @unique
+  dob         DateTime?
+  gender      String?
+  bloodGroup  String?
+  
+  user        User?    @relation(fields: [userId], references: [id])
+  appointments Appointment[]
+  reviews              Review[]
+  testRecommendations  TestRecommendation[]
+  testReferrals        TestReferral[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  @@map("patients")
+  @@index([phone])
+  @@map("patients") // 🟢 FIXED: এটি দিলে Prisma আর টেবিল ডিলিট করবে না
 }
 
 model Queue {
@@ -613,4 +612,14 @@ model CenterTest {
 
   @@unique([diagnosticCenterId, testId])
   @@map("center_tests")
+}
+
+model OtpSession {
+  id        String   @id @default(uuid())
+  phone     String   @unique
+  otp       String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  @@map("otp_sessions")
 }
