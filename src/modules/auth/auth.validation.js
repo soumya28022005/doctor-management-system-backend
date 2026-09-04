@@ -22,3 +22,15 @@ export const resetPasswordSchema = z.object({
   otp: z.string().length(6, "OTP must be 6 digits"),
   newPassword: z.string().min(6, "Password must be at least 6 characters"),
 });
+
+// Clinic Profile Update or Registration Schema
+export const clinicProfileSchema = z.object({
+  clinicName: z.string().min(1, "Clinic name is required").optional(),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  pincode: z.string().optional(),
+  phone: z.string().optional(),
+  whatsapp: z.string().optional(),
+  googleMapsUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
+});

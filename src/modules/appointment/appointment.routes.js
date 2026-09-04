@@ -52,7 +52,12 @@ router.get("/doctors/search", appointmentController.searchDoctors);
  *     responses:
  *       201: { description: Appointment booked successfully }
  */
-router.post("/book/online", authMiddleware, roleMiddleware("PATIENT"), appointmentController.bookOnline);
+router.post(
+  "/book/online",
+  authMiddleware,
+  roleMiddleware("PATIENT", "CLINIC", "ADMIN", "SUPER_ADMIN"), 
+  appointmentController.bookOnline
+);
 
 /**
  * @swagger
@@ -85,7 +90,8 @@ router.post("/book/online", authMiddleware, roleMiddleware("PATIENT"), appointme
 router.post(
   "/book/reception",
   authMiddleware,
-  roleMiddleware("RECEPTIONIST", "CLINIC"),
+  // 🟢 FIX: Added ADMIN and SUPER_ADMIN for testing
+  roleMiddleware("RECEPTIONIST", "CLINIC", "ADMIN", "SUPER_ADMIN"),
   appointmentController.bookReception
 );
 

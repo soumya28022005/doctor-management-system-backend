@@ -47,6 +47,8 @@ export const searchByName = async (name) => {
 };
 
 // Clinic sends a request to a doctor
+// Clinic sends a request to a doctor
+// Clinic sends a request to a doctor
 export const sendRequestToDoctor = async (clinicUserId, payload) => {
   const clinic = await findClinicByUserId(clinicUserId);
   if (!clinic) throw new ApiError(404, "Clinic profile not found");
@@ -58,21 +60,36 @@ export const sendRequestToDoctor = async (clinicUserId, payload) => {
   const existingApproved = await findApprovedAssociationsForDoctor(doctor.id);
   const conflict = findConflict(payload, existingApproved);
 
+  // 1. Create the legacy association for basic clinic linkage
   const association = await createAssociationRequest({
     doctorId: doctor.id,
     clinicId: clinic.id,
     fee: payload.fee,
-    dayOfWeek: payload.dayOfWeek,
-    startTime: payload.startTime,
-    endTime: payload.endTime,
+    dayOfWeek: payload.dayOfWeek || "MONDAY",
+    startTime: payload.startTime || "10:00",
+    endTime: payload.endTime || "12:00",
     status: "PENDING",
     requestedBy: "CLINIC",
   });
 
+  // 2. 🟢 FIX: Safely generate the REAL DoctorSchedule
+  if (payload.startTime && payload.endTime) {
+    await createDoctorSchedule({
+      doctorId: doctor.id,
+      clinicId: clinic.id,
+      startTime: payload.startTime,
+      endTime: payload.endTime,
+      maxPatients: payload.maxPatients || 20,
+      recurrenceType: payload.recurrenceType || "DAILY",
+      recurrencePattern: payload.recurrencePattern || {},
+      isActive: true
+    });
+  }
+
   return {
     association,
     conflictWarning: conflict
-      ? "Note: this time slot currently conflicts with an approved schedule at another clinic. It will stay PENDING until that conflict is resolved."
+      ? "Note: this time slot currently conflicts with an approved schedule at another clinic."
       : null,
   };
 };

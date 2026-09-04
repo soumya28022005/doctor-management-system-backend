@@ -1,22 +1,43 @@
 import asyncHandler from "../../utils/asyncHandler.js";
 import ApiResponse from "../../utils/apiResponse.js";
-import * as specializationService from "./specialization.service.js";
-import { createSpecializationSchema, updateSpecializationSchema } from "./specialization.validation.js";
+import prisma from "../../config/db.config.js";
+import { uploadBufferToCloudinary } from "../../utils/cloudinaryUpload.js";
 
+// Fetch all active specializations
+export const getAllSpecializations = asyncHandler(async (req, res) => {
+  const specializations = await prisma.specialization.findMany({
+    where: { isActive: true },
+    orderBy: { name: 'asc' }
+  });
+  
+  res.status(200).json(new ApiResponse(true, "Specializations fetched", { specializations }));
+});
+
+// Admin creates a new specialization with an icon image
 export const createSpecialization = asyncHandler(async (req, res) => {
-  const data = createSpecializationSchema.parse(req.body);
-  const result = await specializationService.addSpecialization(data);
-  res.status(201).json(new ApiResponse(true, "Specialization created successfully", result));
-});
+  const { name, description } = req.body;
+  
+  if (!name) {
+    return res.status(400).json(new ApiResponse(false, "Name is required"));
+  }
 
-export const updateSpecialization = asyncHandler(async (req, res) => {
-  const data = updateSpecializationSchema.parse(req.body);
-  const result = await specializationService.editSpecialization(req.params.id, data);
-  res.status(200).json(new ApiResponse(true, "Specialization updated successfully", result));
-});
+  // Check if name already exists
+  const existing = await prisma.specialization.findUnique({ where: { name } });
+  if (existing) {
+    return res.status(400).json(new ApiResponse(false, "This specialization already exists"));
+  }
 
-export const getSpecializations = asyncHandler(async (req, res) => {
-  const { activeOnly } = req.query; // ?activeOnly=true
-  const result = await specializationService.fetchSpecializations(activeOnly === 'true');
-  res.status(200).json(new ApiResponse(true, "Specializations fetched", { specializations: result }));
+  let iconUrl = null;
+
+  // Upload image to Cloudinary if file is provided
+  if (req.file) {
+    const result = await uploadBufferToCloudinary(req.file.buffer, "jeet/categories");
+    iconUrl = result.secure_url;
+  }
+
+  const newSpec = await prisma.specialization.create({
+    data: { name, description, iconUrl }
+  });
+  
+  res.status(201).json(new ApiResponse(true, "Specialization added successfully", { specialization: newSpec }));
 });

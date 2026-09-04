@@ -1,17 +1,24 @@
 import { z } from "zod";
 
 export const updateClinicProfileSchema = z.object({
-  clinicName: z.string().min(2, "Clinic name is required"),
+  clinicName: z.string().min(1, "Clinic name is required").optional(),
   address: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
   pincode: z.string().optional(),
+  
+  // 🟢 NEW: Add these so Zod doesn't strip them before saving!
+  phone: z.string().optional(),
+  whatsapp: z.string().optional(),
+  googleMapsUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
 });
 
 export const createDoctorSchema = z.object({
   name: z.string().min(2, "Name is required"),
   email: z.string().email("Invalid email"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().optional().refine((val) => !val || val.length >= 6, {
+  message: "Password must be at least 6 characters",
+}), // 🟢 FIXED: Added .optional()
   phone: z.string().optional(),
   specialization: z.string().optional(), // Kept for legacy/fallback text
   specializationIds: z.array(z.string().uuid()).optional(), // DB-driven specializations

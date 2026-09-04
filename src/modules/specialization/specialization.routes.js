@@ -2,25 +2,20 @@ import { Router } from "express";
 import * as specializationController from "./specialization.controller.js";
 import authMiddleware from "../../middlewares/auth.middleware.js";
 import roleMiddleware from "../../middlewares/role.middleware.js";
+import upload from "../../middlewares/upload.middleware.js";
 
 const router = Router();
 
-// Public / Authenticated route to populate frontend dropdowns
-router.get("/", specializationController.getSpecializations);
+// Public route for homepage
+router.get("/", specializationController.getAllSpecializations);
 
-// Super Admin only routes for managing specializations
+// Secure Admin route for adding new categories with image
 router.post(
-  "/",
-  authMiddleware,
-  roleMiddleware("SUPER_ADMIN"),
+  "/", 
+  authMiddleware, 
+  roleMiddleware("SUPER_ADMIN", "ADMIN"), 
+  upload.single("icon"), 
   specializationController.createSpecialization
-);
-
-router.put(
-  "/:id",
-  authMiddleware,
-  roleMiddleware("SUPER_ADMIN"),
-  specializationController.updateSpecialization
 );
 
 export default router;

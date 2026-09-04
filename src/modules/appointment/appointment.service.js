@@ -21,8 +21,8 @@ import {
   findAppointmentByIdFull,
   cancelAppointmentRecord,
   findPatientByPhone,
+  getDoctorLeaveForDate // <--- ADD THIS HERE
 } from "./appointment.repository.js";
-
 import { emitQueueUpdate } from "../../sockets/queue.socket.js";
 
 const DAY_NAMES = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
@@ -36,8 +36,19 @@ export const searchForDoctors = async (filters) => {
 };
 
 export const bookOnlineAppointment = async (patientUserId, { doctorId, clinicId, scheduleId, date }) => {
-  const patient = await getPatientByUserId(patientUserId);
-  if (!patient) throw new ApiError(404, "Patient profile not found");
+  let patient = await getPatientByUserId(patientUserId);
+  
+  // 🟢 FIX: Auto-create a patient profile if Clinic or Admin is testing
+  if (!patient) {
+    const user = await prisma.user.findUnique({ where: { id: patientUserId } });
+    patient = await prisma.patient.create({
+      data: {
+        userId: patientUserId,
+        name: user.name,
+        phone: user.phone || "0000000000"
+      }
+    });
+  }
 
   await assertBookableClinic(doctorId, clinicId);
   await assertClinicOperational(clinicId, date, { isOnlineBooking: true }, doctorId);
@@ -45,7 +56,7 @@ export const bookOnlineAppointment = async (patientUserId, { doctorId, clinicId,
   return bookAppointmentCore({
     doctorId,
     clinicId,
-    scheduleId, // NEW
+    scheduleId,
     patientId: patient.id,
     date,
     bookingSource: "ONLINE",
@@ -73,7 +84,7 @@ export const bookReceptionAppointment = async (
   return bookAppointmentCore({
     doctorId,
     clinicId,
-    scheduleId, // NEW
+    scheduleId,
     patientId: finalPatientId,
     date,
     bookingSource: bookingSource || "RECEPTION",
@@ -89,7 +100,6 @@ export const getMyAppointments = async (patientUserId) => {
   const appointmentsWithVisibility = await Promise.all(
     appointments.map(async (appt) => {
       const queueMode = await getQueueModeForDoctorClinic(appt.doctorId, appt.clinicId);
-
       const patientsAhead = Math.max(0, appt.token - appt.queue.currentToken - 1);
       const consultationMinutes = await getConsultationMinutesForDoctorClinic(appt.doctorId, appt.clinicId);
       const estimatedWaitMinutes = patientsAhead * consultationMinutes;
@@ -111,9 +121,6 @@ export const getMyAppointments = async (patientUserId) => {
   return appointmentsWithVisibility;
 };
 
-// Shared access check for cancel/reschedule — an existing appointment can be
-// modified by: the owning patient (self), an assigned receptionist, the owning
-// clinic, or Admin/Super Admin.
 const assertAppointmentModifyAccess = async (user, appointment) => {
   if (user.role === "SUPER_ADMIN" || user.role === "ADMIN") return;
 
@@ -189,10 +196,6 @@ export const rescheduleAppointment = async (user, appointmentId, newDate) => {
   }
 
   await assertAppointmentModifyAccess(user, appointment);
-
-  // Clinic must be operational on the new date (holidays/closed days still enforced;
-  // online booking-window/toggle rules deliberately skipped here since a reschedule
-  // is a modification of an already-confirmed booking, not a fresh online booking)
   await assertClinicOperational(appointment.clinicId, newDate, { isOnlineBooking: false }, appointment.doctorId);
 
   await cancelAppointmentRecord(appointmentId, {
@@ -256,101 +259,78 @@ const assertBookableClinic = async (doctorId, clinicId) => {
 };
 
 const bookAppointmentCore = async ({ doctorId, clinicId, scheduleId, patientId, date, bookingSource }) => {
-  const doctor = await getDoctorById(doctorId);
-  if (!doctor) throw new ApiError(404, "Doctor not found");
-  if (!doctor.isVerified) throw new ApiError(403, "Doctor is not yet verified");
+  try {
+    const doctor = await getDoctorById(doctorId);
+    if (!doctor) throw new ApiError(404, "Doctor not found");
+    if (!doctor.isVerified) throw new ApiError(403, "Doctor is not yet verified");
 
-  // Validate the requested schedule actually exists and belongs to the doctor/clinic
-  const schedule = await getDoctorScheduleById(scheduleId);
-  if (!schedule || schedule.doctorId !== doctorId || schedule.clinicId !== clinicId) {
-    throw new ApiError(404, "Invalid schedule selected");
-  }
+    const schedule = await getDoctorScheduleById(scheduleId);
+    if (!schedule || schedule.doctorId !== doctorId || schedule.clinicId !== clinicId) {
+      throw new ApiError(404, "Invalid schedule selected");
+    }
+    if (!schedule.isActive) throw new ApiError(400, "This schedule is currently inactive");
 
-  if (!schedule.isActive) throw new ApiError(400, "This schedule is currently inactive");
+    const queue = await findOrCreateQueue(doctorId, clinicId, date, scheduleId);
+    if (queue.status === "CLOSED") {
+      throw new ApiError(400, "Queue is closed for this session");
+    }
 
-  // Find or Create Queue for this specific session
-  const queue = await findOrCreateQueue(doctorId, clinicId, date, scheduleId);
-  if (queue.status === "CLOSED") {
-    throw new ApiError(400, "Queue is closed for this session");
-  }
-
-  // Transactional creation + Capacity enforcement
-  const { appointment, queue: updatedQueue } = await createAppointmentWithToken({
-    doctorId,
-    clinicId,
-    patientId,
-    queueId: queue.id,
-    scheduleId,
-    date,
-    bookingSource,
-  });
-
-  // Calculate current capacity to broadcast
-  const activeCount = await prisma.appointment.count({
-    where: { queueId: queue.id, status: { in: ["WAITING", "CHECKED_IN"] } }
-  });
-  
-  const capacityPayload = {
-    scheduleId,
-    maxPatients: schedule.maxPatients,
-    currentBookings: activeCount,
-    isFull: activeCount >= schedule.maxPatients
-  };
-
-  const queueMode = await getQueueModeForDoctorClinic(doctorId, clinicId);
-  const broadcastPayload =
-    queueMode === "PRIVATE"
-      ? { doctorId, clinicId, date, scheduleId, status: updatedQueue.status, capacity: capacityPayload }
-      : {
-          doctorId,
-          clinicId,
-          date,
-          scheduleId,
-          currentToken: updatedQueue.currentToken,
-          lastTokenIssued: updatedQueue.lastTokenIssued,
-          status: updatedQueue.status,
-          capacity: capacityPayload // NEW: Broadcast capacity updates instantly (Rule 21)
-        };
-
-  emitQueueUpdate(doctorId, clinicId, broadcastPayload);
-
-  const patient = await prisma.patient.findUnique({ where: { id: patientId } });
-  if (patient?.userId) {
-    await notifyUser({
-      userId: patient.userId,
-      type: "APPOINTMENT_BOOKED",
-      title: "Appointment Confirmed",
-      message: `Your appointment is confirmed — Token #${appointment.token} for ${date} (${schedule.startTime} - ${schedule.endTime}).`,
-      meta: { appointmentId: appointment.id, doctorId, clinicId, date, token: appointment.token },
+    const { appointment, queue: updatedQueue } = await createAppointmentWithToken({
+      doctorId,
+      clinicId,
+      patientId,
+      queueId: queue.id,
+      scheduleId,
+      date,
+      bookingSource,
     });
-  }
 
-  return appointment;
-};
+    // 🟢 FIXED: Removed 'req.query.date' and properly mapped capacity count to queueId
+    const activeCount = await prisma.appointment.count({
+      where: { 
+        queueId: queue.id, 
+        status: { in: ["WAITING", "CHECKED_IN", "COMPLETED"] } 
+      }
+    });
+    
+    const capacityPayload = {
+      scheduleId,
+      maxPatients: schedule.maxPatients,
+      currentBookings: activeCount,
+      isFull: activeCount >= schedule.maxPatients
+    };
 
-const validateBookingWindow = async (doctorId, clinicId) => {
-  const doctor = await getDoctorById(doctorId);
-  if (!doctor) throw new ApiError(404, "Doctor not found");
+    const queueMode = await getQueueModeForDoctorClinic(doctorId, clinicId);
+    const broadcastPayload = queueMode === "PRIVATE"
+        ? { doctorId, clinicId, date, scheduleId, status: updatedQueue.status, capacity: capacityPayload }
+        : {
+            doctorId,
+            clinicId,
+            date,
+            scheduleId,
+            currentToken: updatedQueue.currentToken,
+            lastTokenIssued: updatedQueue.lastTokenIssued,
+            status: updatedQueue.status,
+            capacity: capacityPayload 
+          };
 
-  if (clinicId !== doctor.clinicId || !doctor.startTime) return;
+    emitQueueUpdate(doctorId, clinicId, broadcastPayload);
 
-  const settings = await prisma.platformSetting.findFirst();
-  const windowMinutes = settings?.bookingWindowMinutes ?? 180;
+    const patient = await prisma.patient.findUnique({ where: { id: patientId } });
+    if (patient?.userId) {
+      await notifyUser({
+        userId: patient.userId,
+        type: "APPOINTMENT_BOOKED",
+        title: "Appointment Confirmed",
+        message: `Your appointment is confirmed — Token #${appointment.token} for ${date} (${schedule.startTime} - ${schedule.endTime}).`,
+        meta: { appointmentId: appointment.id, doctorId, clinicId, date, token: appointment.token },
+      });
+    }
 
-  const [hours, minutes] = doctor.startTime.split(":").map(Number);
-
-  const now = new Date();
-  const doctorStart = new Date(now);
-  doctorStart.setHours(hours, minutes, 0, 0);
-
-  const windowStart = new Date(doctorStart.getTime() - windowMinutes * 60000);
-  const windowEnd = new Date(doctorStart.getTime() + windowMinutes * 60000);
-
-  if (now < windowStart || now > windowEnd) {
-    throw new ApiError(
-      400,
-      `Online booking for this doctor is only allowed between ${formatTime(windowStart)} and ${formatTime(windowEnd)}`
-    );
+    return appointment;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(500, `Booking failed: ${error.message}`);
   }
 };
 
@@ -410,16 +390,14 @@ export const processWalkInAppointment = async (user, { doctorId, scheduleId, pho
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Walk-ins use the exact same appointment/queue system and consume same capacity
   const appointment = await bookAppointmentCore({
     doctorId,
     clinicId,
-    scheduleId, // NEW
+    scheduleId,
     patientId: patient.id,
-    date: today,
+    date: today.toISOString().split('T')[0], // Enforce string format for walk-ins too
     bookingSource: "WALK_IN"
   });
 
   return { appointment, token: appointment.token };
 };
-

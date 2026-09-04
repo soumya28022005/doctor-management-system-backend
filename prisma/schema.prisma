@@ -530,6 +530,7 @@ enum RecurrenceType {
   WEEKLY
   MONTHLY_DATE
   MONTHLY_WEEKDAY
+  SPECIFIC_DATE   
 }
 
 model SearchLocation {
@@ -545,6 +546,7 @@ model SearchLocation {
 model Specialization {
   id          String                 @id @default(uuid())
   name        String                 @unique
+  iconUrl     String?
   description String?
   isActive    Boolean                @default(true)
   createdAt   DateTime               @default(now())

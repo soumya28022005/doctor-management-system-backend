@@ -2,7 +2,23 @@ import prisma from "../../config/db.config.js";
 
 export const findClinicByUserId = (userId) => prisma.clinic.findUnique({ where: { userId } });
 export const findClinicById = (id) => prisma.clinic.findUnique({ where: { id } });
-export const updateClinicProfile = (id, data) => prisma.clinic.update({ where: { id }, data });
+export const updateClinicProfile = async (clinicId, data) => {
+  return prisma.clinic.update({
+    where: { id: clinicId },
+    data: {
+      ...(data.clinicName && { clinicName: data.clinicName }),
+      ...(data.address && { address: data.address }),
+      ...(data.city && { city: data.city }),
+      ...(data.state && { state: data.state }),
+      ...(data.pincode && { pincode: data.pincode }),
+      
+      // 🟢 NEW: Tell Prisma to save these fields
+      ...(data.phone !== undefined && { phone: data.phone }),
+      ...(data.whatsapp !== undefined && { whatsapp: data.whatsapp }),
+      ...(data.googleMapsUrl !== undefined && { googleMapsUrl: data.googleMapsUrl }),
+    }
+  });
+};
 
 export const createDoctorWithUser = ({ userData, doctorData, clinicId }) => {
   const { specializationIds, ...restDoctorData } = doctorData;
@@ -36,7 +52,45 @@ export const createReceptionistWithUser = ({ userData, clinicId }) => {
   });
 };
 
-export const findDoctorsByClinic = (clinicId) => prisma.doctor.findMany({ where: { clinicId }, include: { user: { select: { id: true, name: true, email: true, phone: true, isActive: true } } } });
+export const findDoctorsByClinic = async (clinicId) => {
+  // 1. Fetch doctors natively created in this clinic
+  const nativeDoctors = await prisma.doctor.findMany({
+    where: { clinicId: clinicId },
+    include: {
+      user: {
+        select: { id: true, name: true, email: true, phone: true, avatar: true, isActive: true }
+      },
+      specializations: {
+        include: { specialization: true }
+      }
+    }
+  });
+
+  // 2. Fetch existing doctors linked via the DoctorClinicAssociation table
+  const associations = await prisma.doctorClinicAssociation.findMany({
+    where: { 
+      clinicId: clinicId, 
+      status: "APPROVED" 
+    },
+    include: {
+      doctor: {
+        include: {
+          user: { select: { id: true, name: true, email: true, phone: true, avatar: true, isActive: true } },
+          specializations: { include: { specialization: true } }
+        }
+      }
+    }
+  });
+
+  // Extract the actual doctor objects from the associations
+  const associatedDoctors = associations.map(assoc => assoc.doctor);
+
+  // 3. Merge both lists and remove any duplicates just in case
+  const allDoctors = [...nativeDoctors, ...associatedDoctors];
+  const uniqueDoctors = Array.from(new Map(allDoctors.map(d => [d.id, d])).values());
+
+  return uniqueDoctors;
+};
 export const findReceptionistsByClinic = (clinicId) => prisma.receptionist.findMany({ where: { clinicId }, include: { user: { select: { id: true, name: true, email: true, phone: true, isActive: true } }, assignedDoctors: { include: { doctor: { include: { user: { select: { name: true } } } } } } } });
 export const findDoctorById = (id) => prisma.doctor.findUnique({ where: { id } });
 export const findReceptionistById = (id) => prisma.receptionist.findUnique({ where: { id } });

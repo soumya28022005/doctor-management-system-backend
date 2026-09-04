@@ -29,8 +29,27 @@ export const updateMyProfile = asyncHandler(async (req, res) => {
   res.status(200).json(new ApiResponse(true, "Clinic profile updated", { clinic }));
 });
 
+// 🟢 FIXED: Dynamic Password Enforcement
 export const addDoctor = asyncHandler(async (req, res) => {
+  // 1. Zod parses the body (password is now .optional() in Zod, so this won't crash)
   const data = createDoctorSchema.parse(req.body);
+
+  // 2. Check if doctor already exists
+  let isExisting = false;
+  try {
+    const existingDoc = await clinicService.lookupDoctorByEmail(data.email);
+    if (existingDoc) isExisting = true;
+  } catch (error) {
+    // If service throws a 404 Not Found error, the doctor does not exist yet
+    isExisting = false;
+  }
+
+  // 3. Manually enforce password ONLY for brand new doctors
+  if (!isExisting && !data.password) {
+    throw new ApiError(400, "Password is strictly required to create a new doctor account.");
+  }
+
+  // 4. Proceed to Service (Service will either create the user or just link the existing one)
   const result = await clinicService.addDoctor(req.user.id, data);
   res.status(201).json(new ApiResponse(true, "Doctor added successfully", result));
 });

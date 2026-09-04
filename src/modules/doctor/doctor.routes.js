@@ -4,6 +4,7 @@ import * as clinicController from "../clinic/clinic.controller.js";
 import authMiddleware from "../../middlewares/auth.middleware.js";
 import roleMiddleware from "../../middlewares/role.middleware.js";
 import upload from "../../middlewares/upload.middleware.js";
+import { searchDoctorByEmail } from "./doctor.controller.js";
 
 const router = Router();
 
@@ -11,9 +12,7 @@ const router = Router();
 // 1. PUBLIC ROUTES (No Auth Required)
 // =========================================================================
 
-// 🔴 FIX: Advanced Search MUST be at the top of the GET routes!
 router.get("/advanced-search", doctorController.advancedSearch);
-
 router.get("/featured", doctorController.getFeaturedDoctors);
 router.get("/available", doctorController.getAvailableDoctors);
 router.get("/", doctorController.getAllDoctors);
@@ -40,8 +39,9 @@ router.patch(
   doctorController.toggleDoctorAvailability
 );
 
-// 🔴 FIX: Search routes must be defined before dynamic ID routes
+// 🟢 FIX: Search routes are safely placed BEFORE dynamic ID routes
 router.get("/search", authMiddleware, doctorController.searchByName);
+router.get("/search-email", authMiddleware, searchDoctorByEmail); // <-- ADDED HERE
 router.get("/clinics/search", authMiddleware, clinicController.searchByName);
 
 router.post(
@@ -129,12 +129,11 @@ router.post(
 );
 
 // =========================================================================
-// 4. SCHEDULE ROUTES (From Step 4)
+// 4. SCHEDULE ROUTES
 // =========================================================================
 
 router.get(
   "/:doctorId/clinics/:clinicId/schedules",
-  authMiddleware,
   doctorController.getSchedules
 );
 

@@ -53,25 +53,31 @@ export const addDoctor = async (clinicUserId, payload) => {
     const existingDoctor = await prisma.doctor.findUnique({ where: { userId: existingUser.id } });
     if (!existingDoctor) throw new ApiError(500, "Doctor profile missing for this user.");
 
-    // Prevent duplicate association if they are the primary doctor of this clinic
-    if (existingDoctor.clinicId === clinic.id) {
-      throw new ApiError(409, "This doctor is already the primary doctor for your clinic.");
-    }
-
     // Check if association already exists
     const existingAssoc = await prisma.doctorClinicAssociation.findFirst({
       where: { doctorId: existingDoctor.id, clinicId: clinic.id }
     });
 
+    // 🟢 FIXED: If the doctor is already linked (either natively or via association),
+    // we return success immediately without throwing an error.
+    // This allows the frontend to proceed cleanly to creating the Schedule/Session.
+    if (existingDoctor.clinicId === clinic.id || (existingAssoc && existingAssoc.status === "APPROVED")) {
+      const { password: _pw, refreshToken: _rt, ...safeUser } = existingUser;
+      return { 
+        user: safeUser, 
+        doctor: existingDoctor, 
+        association: existingAssoc || null, 
+        isExisting: true,
+        message: "Doctor is already in your clinic. Proceeding to create schedule."
+      };
+    }
+
+    // If an association exists but is PENDING or REJECTED
     if (existingAssoc) {
-      if (existingAssoc.status === "APPROVED") {
-        throw new ApiError(409, "Doctor is already associated with this clinic.");
-      }
       throw new ApiError(409, `Doctor already has a ${existingAssoc.status} request/association with this clinic.`);
     }
 
     // Create Doctor ↔ Clinic association
-    // If frontend payload lacks schedule requirements, apply safe defaults that the doctor/clinic can edit later.
     const association = await prisma.doctorClinicAssociation.create({
       data: {
         doctorId: existingDoctor.id,
@@ -80,7 +86,7 @@ export const addDoctor = async (clinicUserId, payload) => {
         dayOfWeek: payload.dayOfWeek || "MONDAY",
         startTime: payload.startTime || "09:00",
         endTime: payload.endTime || "17:00",
-        status: "APPROVED", // Auto-approved since Clinic Admin is initiating the addition
+        status: "APPROVED", // Auto-approved since Clinic Admin is initiating
         requestedBy: "CLINIC"
       }
     });
@@ -94,10 +100,10 @@ export const addDoctor = async (clinicUserId, payload) => {
   const { specialization, specializationIds, qualification, experience, fee, startTime, dayOfWeek, endTime, ...userFields } = payload;
   
   const { user, doctor } = await clinicRepo.createDoctorWithUser({ 
-  userData: { ...userFields, password: hashedPassword }, 
-  doctorData: { specialization, specializationIds, qualification, experience, fee, startTime }, 
-  clinicId: clinic.id 
-});
+    userData: { ...userFields, password: hashedPassword }, 
+    doctorData: { specialization, specializationIds, qualification, experience, fee, startTime }, 
+    clinicId: clinic.id 
+  });
   
   const { password, refreshToken, ...safeUser } = user;
   return { user: safeUser, doctor, isExisting: false };
